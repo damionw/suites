@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+
+reactor::depends() {
+   :
+}
+
+reactor::run() {
+    sleep 30
+}

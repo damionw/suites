@@ -1,0 +1,71 @@
+#! /usr/bin/env bash
+
+source="$(awk '/__________________ UNITTEST SENTINEL ___________________/ {exit 0;} {print $0;}' < "$(which suites)")"
+tests_folder="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+success=true
+
+test_happy_tests() {
+    local success=true
+    
+    $success
+}
+
+test_graph_tests() {
+    local success=true
+
+    expected_result() {
+        sed -e 's/^            //g' <<'        EOF'
+            task1
+            task2
+            task3
+            task4
+            task7
+            task5
+            task6
+            task8
+            task9
+        EOF
+    }
+
+    if ! output="$(diff --side-by-side <(expected_result) <(get_task_order))"
+    then
+        log "${output}"
+        success=false
+    fi
+    
+    expected_result() {
+        sed -e 's/^            //g' <<'        EOF'
+            task2
+            task4
+            task5
+            task8
+            task9
+        EOF
+    }
+
+    if ! output="$(diff --side-by-side <(expected_result) <(get_task_order_from_graph "$(get_tasks_subgraph task2)"))"
+    then
+        log "${output}"
+        success=false
+    fi
+
+    $success
+}
+
+tests_to_run="$(declare -F | grep ' test_[^\ ][^\ ]*$' | sed -e 's/^declare -f //g')"
+eval "${source}"
+
+for function_name in ${tests_to_run}
+do
+    test_name="$(echo "${function_name}" | sed -e 's/^test_//g')"
+
+    if ! SUITE_FOLDER="${tests_folder}/${test_name}" "${function_name}"
+    then
+        log "${function_name}=failed"
+        success=false
+    else
+        log "${function_name}=success"
+    fi
+done
+
+exec $success

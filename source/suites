@@ -1,0 +1,804 @@
+#! /usr/bin/env bash
+
+#===================================================================================
+#                                   Constants
+#===================================================================================
+export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
+SUITE_VERSION=0.1.1
+SUITE_FOLDER=
+SUITE_LABEL=
+FIFO_WAIT_TIME=2
+DEFAULT_COUNTDOWN= # Infinite
+SUPERVISOR_STOP_ITERATIONS=3
+
+#===================================================================================
+#                                Message handling
+#===================================================================================
+log() {
+    local _retval=$?
+    echo -e "$(date '+%Y-%m-%d %H:%M:%S'): $*" >&2
+    return $_retval
+}
+
+abort() {
+    log "$*"
+    exit 255
+}
+
+#===================================================================================
+#                        Utilities
+#===================================================================================
+apply_in_task_context() {
+    while read name
+    do
+        (. "$(get_suite_folder)/${name}"; fn "${name}")
+    done
+}
+
+get_suite_script() {
+    echo "${SUITE_SCRIPT}"
+}
+
+get_wait_time() {
+    echo "${FIFO_WAIT_TIME}"
+}
+
+get_default_countdown() {
+    echo "${DEFAULT_COUNTDOWN}"
+}
+
+get_suite_label() {
+    echo "${SUITE_LABEL}"
+}
+
+#===================================================================================
+#                        Folders
+#===================================================================================
+get_suite_folder() {
+    if [ -z "${SUITE_FOLDER}" -o ! -d "${SUITE_FOLDER}" ]
+    then
+        abort "No suite folder '${SUITE_FOLDER}'"
+    fi
+
+    readlink -f "${SUITE_FOLDER}"
+}
+
+get_ops_folder() {
+    local _section="${1}"
+    local _folder="$(get_suite_folder)/.${_section}"
+
+    if [ -z "${_section}" ]
+    then
+        abort "No section name specified"
+    elif test -d "${_folder}" || mkdir "${_folder}"
+    then
+        echo "${_folder}"
+    else
+        abort "Cannot create folder '${_folder}'"
+    fi
+}
+
+get_run_folder() {
+    get_ops_folder run
+}
+
+get_log_folder() {
+    get_ops_folder log
+}
+
+#===================================================================================
+#                          Control Files
+#===================================================================================
+get_supervisor_pidfile() {
+    echo "$(get_run_folder)/.supervisor.pid"
+}
+
+get_supervisor_fifo() {
+    local _fifo="$(get_run_folder)/.supervisor.fifo"
+
+    if [ -p "${_fifo}" ]
+    then
+        :
+    elif mkfifo --mode=700 "${_fifo}"
+    then
+        log "Created supervisor fifo '${_fifo}'"
+    else
+        abort "Cannot access fifo '${_fifo}'"
+    fi
+
+    echo "${_fifo}"
+}
+
+get_supervisor_logfile() {
+    echo "$(get_log_folder)/.supervisor.log"
+}
+
+get_supervisor_dependencies_file() {
+    echo "$(get_run_folder)/.supervisor.depends"
+}
+
+get_task_pidfile() {
+    echo "$(get_run_folder)/${1}.pid"
+}
+
+get_task_logfile() {
+    echo "$(get_log_folder)/${1}.log"
+}
+
+get_task_disable_file() {
+    echo "$(get_run_folder)/${1}.disabled"
+}
+
+#===================================================================================
+#                        Process Info
+#===================================================================================
+get_supervisor_pid() {
+    local _pidfile="$(get_supervisor_pidfile)"
+    local _pid=
+    test -f "${_pidfile}" && read _pid < "${_pidfile}" && echo "${_pid}"
+}
+
+get_task_pid() {
+    local _pid=
+    local _task="${1}"
+    local _pidfile="$(get_task_pidfile "${_task}")"
+
+    if [ -f "${_pidfile}" ] && read _pid < "${_pidfile}"
+    then
+        echo "${_pid}"
+    fi
+}
+
+get_process_parent() {
+    local _pid="${1}"
+    test -n "${_pid}" && awk '/^PPid[\:]/ {print $NF;}' < "/proc/${_pid}/status"
+}
+
+#===================================================================================
+#                              Status
+#===================================================================================
+is_supervisor_active() {
+    local _pid="$(get_supervisor_pid)"
+    test -n "${_pid}" && is_process_alive "${_pid}" && test_supervisor_fifo
+}
+
+test_supervisor_fifo() {
+    local _fifo="$(get_supervisor_fifo)"
+    local _signal=12 # SIGUSR1
+    local _pid
+
+    if [ ! -p "${_fifo}" ]
+    then
+        log "'${_fifo}' is not a fifo"
+        return 255
+    fi
+
+    # From a subshell, send an empty message. If it blocks, then there's no reader and a background sleeper will kill the blocked parent
+    (trap 'false' "${_signal}"; _pid=$BASHPID; (sleep "$(get_wait_time)"; kill "-${_signal}" "${_pid}") & echo -n "" >"${_fifo}") >/dev/null 2>&1
+}
+
+is_process_alive() {
+    local _pid="${1}"
+    test -n "${_pid}" &&
+    kill -0 "${_pid}" >/dev/null 2>&1 || # Can't send signal to processes for other users
+    test -e "/proc/${_pid}/status"
+}
+
+#===================================================================================
+#                        Task Information
+#===================================================================================
+get_task_names() {
+    find "$(get_suite_folder)/." -maxdepth 1 -mindepth 1 -name '[a-zA-Z]*' -type f -exec grep -q '^reactor::run()' '{}' \; -printf "%f\n"
+}
+
+get_tasks_graph() {
+    fn() {
+        reactor::depends 2>/dev/null | awk '{printf("%s %s\n", task, $1); ++i;} END {if (i==0) {printf("%s\n", task)};}' i=0 task="${1}"
+    }
+
+    get_task_names | apply_in_task_context
+}
+
+get_task_order() {
+    get_task_order_from_graph "$(get_tasks_graph)"
+}
+
+get_task_order_from_graph() {
+    local _graph="${1}"
+    local _satisfied=
+    local _counter=
+    local _regex=
+
+    while [ -n "${_graph}" ]
+    do
+        local _new="$(echo "${_satisfied}" | sed -e '/^[ ]*$/d' | wc -l)"
+
+        if [ "${_counter}" = "${_new}" ]
+        then
+            abort "Dependency error detected! Graph cannot be flattened"
+        fi
+
+        _counter="${_new}"
+        _satisfied="$((echo "${_satisfied}"; echo "${_graph}" | awk '{if ($2 == "") {print $1;}}') | sed -e '/^[ ]*$/d')"
+        _regex='\('$(echo "${_satisfied}" | awk '{printf("%s%s", sep, $1); sep="\\|";}')'\)'
+        _graph="$(echo "${_graph}" | sed -e "/^${_regex}"'$/d' -e "s/ ${_regex}"'$//g')"
+    done
+
+    echo "${_satisfied}" | uniq
+}
+
+get_tasks_subgraph() {
+    # Fetch the subgraph rooted at the requested task
+    local _root="${1}"
+    local _nodes="${_root}"
+    local _all="$(get_tasks_graph)"
+    local _length=0
+    local _regex
+
+    while [ -n "${_nodes}" -a "${_length}" -lt "$(echo "${_nodes}" | wc -l)" ]
+    do
+        _length="$(echo "${_nodes}" | wc -l)"
+        _regex='[ ][ ]*('"$(echo "${_nodes}" | awk '{printf("%s%s", sep, $1); sep="|";}')"')$'
+        _nodes="$((echo "${_nodes}"; echo "${_all}" | egrep "${_regex}" | awk '{print $1;}') | sort -u)"
+    done
+
+    if [ "${_length}" -gt 0 ]
+    then
+        echo "${_root}"
+        echo "${_all}" | egrep "${_regex}"
+    fi
+}
+
+get_suite_status() {
+    local _result
+    local _task
+    local _pid
+
+    echo "Supervisor: $(get_supervisor_pid)"
+
+    echo "Dependencies: $(get_dependency_list | awk '{for (i=1; i <= NF; ++i) {printf("%s%s", sep, $i); sep=",";}}')"
+
+    get_task_order | while read _task
+    do
+        _result="$(
+            if is_task_disabled "${_task}"
+            then
+                echo disabled
+            else
+                get_task_pid "${_task}"
+            fi
+        )"
+
+        echo "${_task}: ${_result}"
+    done
+}
+
+is_task_running() {
+    local _task="${1}"
+    local _pid=
+
+    _pid="$(get_task_pid "${_task}")" && is_process_alive "${_pid}"
+}
+
+is_task_disabled() {
+    test -e "$(get_task_disable_file "${1}")"
+}
+
+#===================================================================================
+#                            Task Management
+#===================================================================================
+check_tasks() {
+    local _graph="$(get_tasks_graph)"
+    local _shutdown=
+    local _option=
+    local _task=
+    local _pid=
+
+    # Special instructions
+    for _option in $@
+    do
+        case "${_option}" in
+            "shutdown")
+                _shutdown="shutdown"
+                ;;
+        esac
+    done
+
+    # -------------------------------------------------------
+    # Figure out graph edges of tasks to stop
+    # -------------------------------------------------------
+    local _merged_stop_graphs="$(
+        for _task in $(get_task_names)
+        do
+            if is_task_disabled "${_task}" || test -n "${_shutdown}"
+            then
+                get_tasks_subgraph "${_task}"
+            fi
+        done | sort -u
+    )"
+
+    # -------------------------------------------------------
+    # Any tasks in this list must be stopped
+    # -------------------------------------------------------
+    local _stop_list="$(
+        get_task_order_from_graph "${_merged_stop_graphs}"
+    )"
+
+    # -------------------------------------------------------
+    # Stop disabled tasks in reverse startup order, including dependents
+    # -------------------------------------------------------
+    echo "${_stop_list}" | tac | while read _task
+    do
+        if is_task_running "${_task}"
+        then
+            stop_task "${_task}"
+        fi
+    done
+    
+    # -------------------------------------------------------
+    # Progressively follow the start order and only start the
+    # first missing runner found
+    # -------------------------------------------------------
+    get_task_order | while read _task
+    do
+        if [ "${_shutdown}" != "shutdown" ] && ! is_task_running "${_task}" && ! is_task_disabled "${_task}" && ! grep -q '^'"${_task}"'$' <<< "${_stop_list}"
+        then
+            start_task "${_task}"
+            break
+        fi
+    done
+}
+
+start_task() {
+    local _task="${1}"
+
+    if [ -z "${_task}" ]
+    then
+        log "No task name provided to start"
+        return 255
+    elif is_task_running "${_task}"
+    then
+        log "Task '${_task}' is already running"
+        return 99
+    fi
+
+    local _script="$(get_suite_folder)/${_task}"
+
+    if [ ! -f "${_script}" ]
+    then
+        log "Can't find script '${_script}' for task ${_task}"
+        return 77
+    fi
+
+    local _logfile="$(get_task_logfile "${_task}")"
+    local _pidfile="$(get_task_pidfile "${_task}")"
+    local _label="$(get_suite_label)"
+    local _shell="$(which bash)"
+    local _pid=
+
+    # Launch the task using the reactor interface
+    "${_shell}" -c "exec </dev/null >>'${_logfile}' 2>&1 10<&- 11>&- 12>&- 13<&- 14>&-; exec -a '${_label}::${_task}' '${_shell}' <<< '. ${_script}; reactor::run ${_task}'" & _pid=$!
+    log "Started task '${_task}' as process ${_pid}"
+    echo "${_pid}" > "${_pidfile}"
+}
+
+stop_task() {
+    local _task="${1}"
+    local _pid=
+
+    if is_task_running "${_task}" && _pid="$(get_task_pid "${_task}")"
+    then
+        log "Stopping process ${_pid} for task '${_task}'"
+        kill "${_pid}"
+    fi
+}
+
+disable_tasks() {
+    local _task=
+
+    for _task in $@
+    do
+        local _disable_file="$(get_task_disable_file "${_task}")"
+
+        if [ -n "${_disable_file}" -a ! -f "${_disable_file}" ]
+        then
+            > "${_disable_file}"
+        fi
+    done
+}
+
+enable_tasks() {
+    local _task=
+
+    for _task in $@
+    do
+        local _disable_file="$(get_task_disable_file "${_task}")"
+
+        if [ -f "${_disable_file}" ]
+        then
+            rm "${_disable_file}"
+        fi
+    done
+}
+
+#===================================================================================
+#                            Dependency Management
+#===================================================================================
+validate_dependencies() {
+    local _pid=
+
+    # Takes a full authoritative replacement list of pids from stdin
+
+    # Consume all of the pids from stdin (since we're overwriting the source)
+    local _pids="$(
+        sed -e 's/^[ ]*//g' -e 's/[ ]*$//g' -e '/^[ ]*$/d' | sort -nru | while read _pid
+        do
+            is_process_alive "${_pid}" && echo "${_pid}"
+        done
+    )"
+
+    # Write 'em to the depfile
+    echo "${_pids}" > "$(get_supervisor_dependencies_file)"
+}
+
+refresh_dependencies() {
+    add_dependencies </dev/null
+}
+
+add_dependencies() {
+    (awk '{for (i=1; i <= NF; ++i) {printf("%s\n", $i);}}'; get_dependency_list) | validate_dependencies
+}
+
+remove_dependencies() {
+    # Takes a list of pids to elide via stdin
+    local _pids="$(awk '{for (i=1; i <= NF; ++i) {printf("%s%s", sep, $i); sep="\\|";}}')"
+    local _regex='/^\('"${_pids}"'\)$/d'
+
+    if [ -z "${_pids}" ]
+    then
+        return 0
+    fi
+
+    get_dependency_list | sed -e "${_regex}" | validate_dependencies
+}
+
+get_dependency_list() {
+    cat "$(get_supervisor_dependencies_file)"
+}
+
+has_dependencies() {
+    test "$(get_dependency_list | wc -l)" -gt 0
+}
+
+#===================================================================================
+#                        Messaging
+#===================================================================================
+send_dependency_registration_request() {
+    send_supervisor_request_message ADD_DEPENDENCIES $@
+}
+
+send_dependency_deregistration_request() {
+    send_supervisor_request_message REMOVE_DEPENDENCIES $@
+}
+
+send_supervisor_stop_request() {
+    send_supervisor_request_message STOP $@
+}
+
+send_task_enable_request() {
+    send_supervisor_request_message ENABLE $@
+}
+
+send_task_disable_request() {
+    send_supervisor_request_message DISABLE $@
+}
+
+#===================================================================================
+#                        Supervisor
+#===================================================================================
+send_supervisor_request_message() {
+    if ! test_supervisor_fifo
+    then
+        abort "No response on supervisor fifo"
+    fi
+
+    local _fifo="$(get_supervisor_fifo)"
+    local _request="${1}"
+    shift
+    local _parameters="${@}"
+
+    echo "${_request}" "${_parameters}" >> "${_fifo}"
+}
+
+start_supervisor() {
+    local _suite_folder="$(get_suite_folder)"
+    local _script="$(get_suite_script)"
+    local _label="$(get_suite_label)"
+    local _shell="$(which bash)"
+
+    # Start the supervisor in the background, renaming it in the process
+    if is_supervisor_active
+    then
+        log "Supervisor is already running"
+    else
+        __SUITE_FOLDER__="${_suite_folder}" __SUITE_LABEL__="${_label}" "${_shell}" -c "exec 10<&0 11>&1 12>&2; exec -a '${_label}::supervisor' '${_shell}' <<< '. ${_script}'" &
+    fi
+
+    # Tell supervisor that the caller is a dependent
+    send_dependency_registration_request ${PARENT_PID}
+}
+
+stop_supervisor() {
+    local _pid="$(get_supervisor_pid)"
+
+    if is_supervisor_active
+    then
+        log "Sending stop message to supervisor process ${_pid}"
+        send_supervisor_stop_request
+    elif [ -n "${_pid}" ]
+    then
+        log "Stopping supervisor process ${_pid}"
+        kill "${_pid}"
+    else
+        abort "There is no supervisor running"
+    fi
+}
+
+supervisor() {
+    local _logfile="$(get_supervisor_logfile)"
+    local _pidfile="$(get_supervisor_pidfile)"
+    local _label="$(get_suite_label)"
+    local _fifo="$(get_supervisor_fifo)"
+    local _wait="$(get_wait_time)"
+    local _suite_folder="$(get_suite_folder)"
+    local _initial_countdown="$(get_default_countdown)"
+    local _pid=$$
+    
+    local _task
+    local _countdown
+    local _request
+    local _parameters
+    local _shutdown
+
+    # stdin, stdout & stderr are preserved as descriptors 10, 11, and 12
+    # The folder structure for this process group, in the selected <domain>
+    # is fully populated before we enter this handler
+
+    if [ -z "${_logfile}" -o -z "${_pidfile}" -o -z "${_fifo}" ]
+    then
+        abort "Can't get prerequisites for supervisor"
+    fi
+
+    # Record the process id
+    echo "${_pid}" > "${_pidfile}"
+
+    # Open the fifo for reading AND writing. Without it
+    # being opened by at least one writer, the read
+    # attempts fail because they're invalid, leading
+    # to lots of cpu time looping
+    exec 13<>"${_fifo}" 14>"${_logfile}"
+
+    # stdin reads from the fifo, stdout/stderr write to the log
+    exec <&13 >&14 2>&14
+
+    trap 'check_tasks' 20 17 18
+    trap '_countdown=0' 1 2 3 15 # Causes immediate shutdown
+
+    log "Started supervisor '${_label}'"
+
+    while [ -z "${_countdown}" -o "${_countdown:-0}" -gt 0 ]
+    do
+        #-----------------------------------------
+        # Check the fifo for incoming instructions
+        #-----------------------------------------
+        if read -t ${_wait} _request _parameters
+        then
+            log "Received '${_request}' [${_parameters}]"
+
+            case "${_request}" in
+                ADD_DEPENDENCIES)
+                    if [ -z "${_shutdown}" ]
+                    then
+                        echo "${_parameters}" | add_dependencies
+                        _countdown="${_initial_countdown}"
+                    fi
+                    ;;
+
+                REMOVE_DEPENDENCIES)
+                    echo "${_parameters}" | remove_dependencies
+                    ;;
+
+                STOP)
+                    _countdown="${SUPERVISOR_STOP_ITERATIONS}"
+                    _shutdown="shutdown"
+                    ;;
+
+                ENABLE)
+                    enable_tasks ${_parameters}
+                    ;;
+
+                DISABLE)
+                    disable_tasks ${_parameters}
+                    ;;
+
+                *)
+                    log "Unhandled request '${_request}' in '${_suite_folder}'"
+                    ;;
+            esac
+        elif [ -n "${_countdown}" ] # Only decrement when we're on a shutdown timer
+        then
+            log "Shutdown in $(($_countdown * ${_wait})) seconds"
+            ((--_countdown))
+        fi
+
+        #-----------------------------------------
+        # Handle dependent processes
+        #-----------------------------------------
+        refresh_dependencies
+
+        if ! has_dependencies && test -z "${_countdown}"
+        then
+            log "No active dependencies. Scheduling premptible shutdown in $((${SUPERVISOR_STOP_ITERATIONS} * ${_wait})) seconds"
+            _countdown="${SUPERVISOR_STOP_ITERATIONS}"
+        fi
+
+        #-----------------------------------------
+        # Manage task processes
+        #-----------------------------------------
+        check_tasks ${_shutdown}
+    done
+
+    # Truncate dependencies
+    validate_dependencies </dev/null
+
+    # cleanup
+    for _task in $(get_task_names)
+    do
+        rm "$(get_task_pidfile "${_task}")" >/dev/null 2>&1
+    done
+
+    # Erase the supervisor process id last
+    > "${_pidfile}"
+
+    log "Exited supervisor '${_label}'"
+}
+
+#===================================================================================
+#                           Program Information
+#===================================================================================
+showhelp() {
+    showoptions() {
+        echo "[--help]"
+        echo "[--suite=<suite_folder>"
+        echo "[--label=<instance name>"
+        echo "[--deregister=<pid>]"
+        echo "[--register=<pid>]"
+        echo "[--version]"
+        echo "[--status]"
+        echo "[--start]"
+        echo "[--stop]"
+    }
+
+    echo "Usage: ${SUITE_SCRIPT} $(showoptions)" >&2
+    exit 15
+}
+
+showversion() {
+    echo "${SUITE_VERSION}"
+    exit 17
+}
+
+#__________________ UNITTEST SENTINEL ___________________ #
+
+#===================================================================================
+#                     Prepare command line options
+#===================================================================================
+if [ -n "${__SUITE_FOLDER__}" ]
+then
+    #-------------------------------
+    # Break out before command
+    # line processing if started
+    # in supervisor mode
+    #-------------------------------
+
+    SUITE_FOLDER="${__SUITE_FOLDER__}"
+    SUITE_LABEL="${__SUITE_LABEL__}"
+    export -n __SUITE_FOLDER__ __SUITE_LABEL__
+    supervisor
+    exit 0
+elif ! OPTION_TEMP=$(getopt -a -o hv --long help,label:,supervisor,status,start,stop,deregister:,register:,suite:,disable:,enable:,version -- "$@")
+then
+    #-----------------------------------------------------
+    # NOTE: There is a bug in getopts where not specifying
+    #       at least one short option will cause the first
+    #       non option parameter to be discarded. Here, we
+    #       just use -h (help)
+    #-----------------------------------------------------
+
+    abort "Invalid command line options ${OPTION_TEMP}"
+elif [ $# = 0 ]
+then
+    showhelp
+else
+    eval set -- "$OPTION_TEMP"
+fi
+
+#===================================================================================
+#                        Get Process Hierarchy
+#===================================================================================
+this_pid=$BASHPID # Don't grab this inside a subprocess !
+PARENT_PID="$(get_process_parent "${this_pid}")"
+
+#===================================================================================
+#                     Process command line parameters
+#===================================================================================
+while true
+do
+    case "$1" in
+        --suite)
+            SUITE_FOLDER="$(readlink -f "$2")"
+
+            if [ -z "${SUITE_LABEL}" ]
+            then
+                SUITE_LABEL="$(basename "${SUITE_FOLDER}")"
+            fi
+
+            shift 2
+            ;;
+
+        --deregister)
+            send_dependency_deregistration_request "${2}"
+            shift 2
+            ;;
+
+        --register)
+            send_dependency_registration_request "${2}"
+            shift 2
+            ;;
+
+        --enable)
+            send_task_enable_request "${2}"
+            shift 2
+            ;;
+
+        --disable)
+            send_task_disable_request "${2}"
+            shift 2
+            ;;
+
+        --label)
+            SUITE_LABEL="${2}"
+            shift 2
+            ;;
+
+        --status)
+            get_suite_status
+            shift
+            ;;
+
+        --start)
+            start_supervisor
+            shift
+            ;;
+
+        --stop)
+            stop_supervisor
+            shift
+            ;;
+
+        --version|-v)
+            showversion
+            shift
+            ;;
+
+        --help|-h)
+            showhelp
+            shift
+            ;;
+
+        --)
+            shift
+            break
+            ;;
+    esac
+done

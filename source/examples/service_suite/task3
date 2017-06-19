@@ -1,0 +1,10 @@
+#! /usr/bin/env bash
+
+reactor::depends() {
+    echo "task1"
+}
+
+reactor::run() {
+    echo "RUNNING $1"
+    sleep 23
+}
