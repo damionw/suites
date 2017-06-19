@@ -188,7 +188,7 @@ is_process_alive() {
 #                        Task Information
 #===================================================================================
 get_task_names() {
-    find "$(get_suite_folder)/." -maxdepth 1 -mindepth 1 -name '[a-zA-Z]*' -type f -exec grep -q '^reactor::run()' '{}' \; -printf "%f\n"
+    find "$(get_suite_folder)/." -maxdepth 1 -mindepth 1 -name '[a-zA-Z]*' -xtype f -exec grep -q '^reactor::run()' '{}' \; -printf "%f\n"
 }
 
 get_tasks_graph() {
@@ -249,28 +249,85 @@ get_tasks_subgraph() {
     fi
 }
 
+#===================================================================================
+#                         State Reporting
+#===================================================================================
+get_task_status() {
+    local _task="${1}"
+    local _pid
+
+    if is_task_disabled "${_task}"
+    then
+        echo "\"disabled\""
+    elif ! _pid="$(get_task_pid "${_task}")" || test -z "${_pid}"
+    then
+        echo null
+    else
+        echo ${_pid}
+    fi
+}
+
+get_supervisor_status() {
+    local _pid
+
+    if ! _pid="$(get_supervisor_pid)" || test -z "${_pid}"
+    then
+        echo null
+    else
+        echo ${_pid}
+    fi
+}
+
 get_suite_status() {
-    local _result
+    local _default_selection="supervisor,tasks,dependencies,suite"
+    local _selection=$(echo "${*:-${_default_selection}}" | awk -F, '{for (i=1; i <= NF; ++i) {print $i;}}')
+    local _separator=
     local _task
     local _pid
 
-    echo "Supervisor: $(get_supervisor_pid)"
+    {
+        echo "{"
 
-    echo "Dependencies: $(get_dependency_list | awk '{for (i=1; i <= NF; ++i) {printf("%s%s", sep, $i); sep=",";}}')"
+        for _key in ${_selection}
+        do
+            echo -e -n "${_separator:+"${_separator}\\n"}\"${_key}\": "
 
-    get_task_order | while read _task
-    do
-        _result="$(
-            if is_task_disabled "${_task}"
-            then
-                echo disabled
-            else
-                get_task_pid "${_task}"
-            fi
-        )"
+            case "${_key}" in
+                suite)
+                    echo -n "\"$(get_suite_folder)\""
+                    ;;
 
-        echo "${_task}: ${_result}"
-    done
+                supervisor)
+                    echo -n $(get_supervisor_status)
+                    ;;
+
+                dependencies)
+                    echo -n "[$(get_dependency_list | awk '{for (i=1; i <= NF; ++i) {printf("%s%s", sep, $i); sep=",";}}')]"
+                    ;;
+
+                tasks)
+                    echo "{"
+                    local _sep=
+
+                    get_task_order | while read _task
+                    do
+                        echo -e -n "${_sep:+"${_sep}\\n"}\"${_task}\": $(get_task_status ${_task})"
+                        _sep=","
+                    done
+
+                    echo -e -n "\n}"
+                    ;;
+
+                *)
+                    echo -n null
+                    ;;
+            esac
+
+            _separator=","
+        done
+
+        echo -e "\n}"
+    } | json_pp
 }
 
 is_task_running() {
@@ -327,13 +384,7 @@ check_tasks() {
     # -------------------------------------------------------
     # Stop disabled tasks in reverse startup order, including dependents
     # -------------------------------------------------------
-    echo "${_stop_list}" | tac | while read _task
-    do
-        if is_task_running "${_task}"
-        then
-            stop_task "${_task}"
-        fi
-    done
+    stop_tasks $(echo "${_stop_list}" | tac)
     
     # -------------------------------------------------------
     # Progressively follow the start order and only start the
@@ -382,15 +433,17 @@ start_task() {
     echo "${_pid}" > "${_pidfile}"
 }
 
-stop_task() {
-    local _task="${1}"
+stop_tasks() {
     local _pid=
 
-    if is_task_running "${_task}" && _pid="$(get_task_pid "${_task}")"
-    then
-        log "Stopping process ${_pid} for task '${_task}'"
-        kill "${_pid}"
-    fi
+    for _task in $@
+    do
+        if is_task_running "${_task}" && _pid="$(get_task_pid "${_task}")"
+        then
+            log "Stopping process ${_pid} for task '${_task}'"
+            kill "${_pid}"
+        fi
+    done
 }
 
 disable_tasks() {
@@ -481,8 +534,8 @@ send_dependency_deregistration_request() {
     send_supervisor_request_message REMOVE_DEPENDENCIES $@
 }
 
-send_supervisor_stop_request() {
-    send_supervisor_request_message STOP $@
+send_supervisor_shutdown_request() {
+    send_supervisor_request_message SHUTDOWN $@
 }
 
 send_task_enable_request() {
@@ -491,6 +544,10 @@ send_task_enable_request() {
 
 send_task_disable_request() {
     send_supervisor_request_message DISABLE $@
+}
+
+send_task_kill_request() {
+    send_supervisor_request_message KILL $@
 }
 
 #===================================================================================
@@ -521,7 +578,8 @@ start_supervisor() {
     then
         log "Supervisor is already running"
     else
-        __SUITE_FOLDER__="${_suite_folder}" __SUITE_LABEL__="${_label}" "${_shell}" -c "exec 10<&0 11>&1 12>&2; exec -a '${_label}::supervisor' '${_shell}' <<< '. ${_script}'" &
+        __SUITE_FOLDER__="${_suite_folder}" __SUITE_LABEL__="${_label}" "${_shell}" -c "exec 10<&0 11>&1 12>&2; exec -a '${_label}::supervisor' '${_shell}' <<< '. ${_script}'" & _pid=$!
+        log "Supervisor started as process ${_pid}"
     fi
 
     # Tell supervisor that the caller is a dependent
@@ -534,7 +592,7 @@ stop_supervisor() {
     if is_supervisor_active
     then
         log "Sending stop message to supervisor process ${_pid}"
-        send_supervisor_stop_request
+        send_supervisor_shutdown_request
     elif [ -n "${_pid}" ]
     then
         log "Stopping supervisor process ${_pid}"
@@ -608,7 +666,7 @@ supervisor() {
                     echo "${_parameters}" | remove_dependencies
                     ;;
 
-                STOP)
+                SHUTDOWN)
                     _countdown="${SUPERVISOR_STOP_ITERATIONS}"
                     _shutdown="shutdown"
                     ;;
@@ -619,6 +677,10 @@ supervisor() {
 
                 DISABLE)
                     disable_tasks ${_parameters}
+                    ;;
+
+                KILL)
+                    stop_tasks ${_parameters}
                     ;;
 
                 *)
@@ -668,18 +730,19 @@ supervisor() {
 #===================================================================================
 showhelp() {
     showoptions() {
-        echo "[--help]"
+        echo "[--help (default}]"
         echo "[--suite=<suite_folder>"
         echo "[--label=<instance name>"
         echo "[--deregister=<pid>]"
         echo "[--register=<pid>]"
+        echo "[--kill|--restart <taskname>]"
         echo "[--version]"
         echo "[--status]"
         echo "[--start]"
-        echo "[--stop]"
+        echo "[--stop|--shutdown]"
     }
 
-    echo "Usage: ${SUITE_SCRIPT} $(showoptions)" >&2
+    echo Usage: ${SUITE_SCRIPT} $(showoptions) >&2
     exit 15
 }
 
@@ -706,7 +769,7 @@ then
     export -n __SUITE_FOLDER__ __SUITE_LABEL__
     supervisor
     exit 0
-elif ! OPTION_TEMP=$(getopt -a -o hv --long help,label:,supervisor,status,start,stop,deregister:,register:,suite:,disable:,enable:,version -- "$@")
+elif ! OPTION_TEMP=$(getopt -a -o hv --long help,label:,supervisor,status,kill:,restart:,start,shutdown,stop,deregister:,register:,suite:,disable:,enable:,version -- "$@")
 then
     #-----------------------------------------------------
     # NOTE: There is a bug in getopts where not specifying
@@ -766,6 +829,11 @@ do
             shift 2
             ;;
 
+        --restart|--kill)
+            send_task_kill_request "${2}"
+            shift 2
+            ;;
+
         --label)
             SUITE_LABEL="${2}"
             shift 2
@@ -781,7 +849,7 @@ do
             shift
             ;;
 
-        --stop)
+        --shutdown|--stop)
             stop_supervisor
             shift
             ;;

@@ -1,5 +1,7 @@
 #! /usr/bin/env bash
 
+scriptfile="${BASH_SOURCE[0]}"
+
 reactor::depends() {
    :
 }
@@ -7,12 +9,62 @@ reactor::depends() {
 reactor::run() {
     local _task="${1}"
     local _shell="$(which bash)"
-    local _scriptfile="${BASH_SOURCE[0]}"
     local _port="$(http::listen_port)"
 
     http::logging "Started webserver on port ${_port}"
 
-    exec ncat -l ${_port} -k --sh-exec "'${_shell}' -c '. ${_scriptfile}; http::handle_request'"
+    exec ncat -l ${_port} -k --sh-exec "'${_shell}' -c '. $(script::file); http::handle_request'"
+}
+
+#===================================================================================
+#                             Script Info
+#===================================================================================
+script::file() {
+    echo "${scriptfile}"
+}
+
+#===================================================================================
+#                              Request Handlers
+#===================================================================================
+request::suite_status() {
+    "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --status | http::reply_json
+}
+
+request::index() {
+    sed -e 's/^            //g' <<"    EOF" | http::reply_html
+        <!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+        <html lang="en-US">
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                <title>Test</title>
+
+                <style type="text/css">
+                    height, body {
+                        font-family: Helvetica, Arial, Verdana, Sans-Serif;
+                        background: #fefefe;
+                        height: 100%;
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
+                    }
+                </style>
+            </head>
+            <body>
+                <div>
+                    <span class="title">
+                        This is banner text
+                    </span>
+
+                    <div id="tabbed_content">
+                        <div><p>Ispum schmipsum.</p></div>
+                        <div><p>How am I doing.</p></div>
+                        <div><p>Hello.</p></div>
+                        <div><p>No way</p></div>
+                    </div>
+                </div>
+            </body>
+        </html>
+    EOF
 }
 
 #===================================================================================
@@ -48,6 +100,8 @@ http::listen_port() {
 }
 
 http::reply() {
+    # Content comes in via stdin, http code, http version, and headers come in as args
+
     format_response() {
         local _row
 
@@ -90,64 +144,15 @@ http::404_error() {
     )"
 }
 
-http::default_handler() {
-    content() {
-        sed -e 's/^            //g' <<"        EOF"
-            <!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-            <html lang="en-US">
-                <head>
-                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-                    <title>Test</title>
-
-                    <style type="text/css">
-                        height, body {
-                            font-family: Helvetica, Arial, Verdana, Sans-Serif;
-                            background: #fefefe;
-                            height: 100%;
-                            width: 100%;
-                            margin: 0;
-                            padding: 0;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div>
-                        <span class="title">
-                            This is banner text
-                        </span>
-
-                        <div id="tabbed_content">
-                            <div><p>Ispum schmipsum.</p></div>
-                            <div><p>How am I doing.</p></div>
-                            <div><p>Hello.</p></div>
-                            <div><p>No way</p></div>
-                        </div>
-                    </div>
-                </body>
-            </html>
-        EOF
-    }
-
-    local _method="${1}"
-    local _request="${2}"
-    local _headers="${3}"
-
-    content | http::reply 200 "HTTP/1.1" "$(
+http::reply_html() {
+    http::reply 200 "HTTP/1.1" "$(
         header::server_type
         header::text_html
     )"
 }
 
-http::suite_status() {
-    content() {
-        echo "{"
-        "${SUITE_SCRIPT}" --suite="$(dirname "${_scriptfile}")" --status
-        echo "}"
-    }
-
-    local _scriptfile="${BASH_SOURCE[0]}"
-
-    content | http::reply 200 "HTTP/1.1" "$(
+http::reply_json() {
+    http::reply 200 "HTTP/1.1" "$(
         header::server_type
         header::application_json
     )"
@@ -184,9 +189,9 @@ http::handle_request() {
     )
 
     local _url_handlers=(
-        http::default_handler
-        http::default_handler
-        http::suite_status
+        request::index
+        request::index
+        request::suite_status
     )
 
     case "${_method}" in
