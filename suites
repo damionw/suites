@@ -516,7 +516,8 @@ remove_dependencies() {
 }
 
 get_dependency_list() {
-    cat "$(get_supervisor_dependencies_file)"
+    local _depfile="$(get_supervisor_dependencies_file)"
+    test -f "${_depfile}" && cat < "${_depfile}"
 }
 
 has_dependencies() {
@@ -642,7 +643,7 @@ supervisor() {
     trap 'check_tasks' 20 17 18
     trap '_countdown=0' 1 2 3 15 # Causes immediate shutdown
 
-    log "Started supervisor '${_label}'"
+    log "Started supervisor '${_label}' as process ${_pid}"
 
     while [ -z "${_countdown}" -o "${_countdown:-0}" -gt 0 ]
     do
@@ -801,7 +802,10 @@ do
         --suite)
             SUITE_FOLDER="$(readlink -f "$2")"
 
-            if [ -z "${SUITE_LABEL}" ]
+            if [ ! -d "${SUITE_FOLDER}" ]
+            then
+                abort "No suite folder in '${2}'"
+            elif [ -z "${SUITE_LABEL}" ]
             then
                 SUITE_LABEL="$(basename "${SUITE_FOLDER}")"
             fi
