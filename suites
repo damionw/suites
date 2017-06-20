@@ -489,11 +489,18 @@ start_task() {
 }
 
 stop_tasks() {
+    local _task
     local _pid=
 
     for _task in $@
     do
-        if is_task_running "${_task}" && _pid="$(get_task_pid "${_task}")"
+        if ! is_task_running "${_task}"
+        then
+            :
+        elif ! _pid="$(get_task_pid "${_task}")"
+        then
+            log "No such task '${_task}'"
+        elif test -n "${_pid}"
         then
             log "Stopping process ${_pid} for task '${_task}'"
             kill "${_pid}"
