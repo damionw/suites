@@ -541,7 +541,7 @@ validate_dependencies() {
     local _pids="$(
         sed -e 's/^[ ]*//g' -e 's/[ ]*$//g' -e '/^[ ]*$/d' | sort -nru | while read _pid
         do
-            is_process_alive "${_pid}" && echo "${_pid}"
+            is_process_alive "${_pid}" && echo "${_pid}" || log "Removing dependency ${_pid}"
         done
     )"
 
