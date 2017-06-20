@@ -382,7 +382,7 @@ get_suite_status() {
         done
 
         echo -e "\n}"
-    } | json_pp
+    } | (json_pp 2>/dev/null || cat)
 }
 
 is_task_running() {
