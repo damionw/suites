@@ -52,6 +52,38 @@ get_suite_label() {
 }
 
 #===================================================================================
+#                        Networking
+#===================================================================================
+get_available_ports() {
+    start_port=${1:-9000}
+    protocol=${2:-tcp}
+
+    address_family=$(echo ${protocol}4 | sed -e 's/^[^0-9]*//g' | dd bs=1 count=1 2>/dev/null)
+    protocol=$(echo ${protocol} | sed -e 's/[0-9].*$//g')
+
+    netstat -ln --${protocol} -${address_family} |
+    awk '{print $4;}' |
+    awk -F: '{print $2;}' |
+    sed -e '/^[ ]*$/d' |
+    sort -n |
+    awk '{
+        for (; i < $1; ++i)
+        {
+            print i;
+        }
+
+        if (i == $1)
+        {
+            ++i;
+        }
+    }' i=${start_port}
+}
+
+get_unused_port() {
+    get_available_ports $* | head -1
+}
+
+#===================================================================================
 #                        Folders
 #===================================================================================
 get_suite_folder() {
@@ -252,6 +284,16 @@ get_tasks_subgraph() {
 #===================================================================================
 #                         State Reporting
 #===================================================================================
+get_task_ports() {
+    local _task="${1}"
+    local _pid
+    
+    if _pid="$(get_task_pid "${_task}")" && test -n "${_pid}"
+    then
+        lsof -p ${_pid} -P | grep '[\(]LISTEN[\)][ ]*$' | awk '/TCP/ {print $(NF - 1);}' | awk -F: '{print $2;}'
+    fi
+}
+
 get_task_status() {
     local _task="${1}"
     local _pid
@@ -279,7 +321,7 @@ get_supervisor_status() {
 }
 
 get_suite_status() {
-    local _default_selection="supervisor,tasks,dependencies,suite"
+    local _default_selection="supervisor,tasks,dependencies,suite,ports"
     local _selection=$(echo "${*:-${_default_selection}}" | awk -F, '{for (i=1; i <= NF; ++i) {print $i;}}')
     local _separator=
     local _task
@@ -305,9 +347,22 @@ get_suite_status() {
                     echo -n "[$(get_dependency_list | awk '{for (i=1; i <= NF; ++i) {printf("%s%s", sep, $i); sep=",";}}')]"
                     ;;
 
-                tasks)
-                    echo "{"
+                ports)
                     local _sep=
+                    echo "{"
+
+                    get_task_order | while read _task
+                    do
+                        echo -e -n "${_sep:+"${_sep}\\n"}\"${_task}\": [$(get_task_ports "${_task}" | awk '{for (i=1; i <= NF; ++i) {printf("%s%d", sep, $i); sep=",";}}')]"
+                        _sep=","
+                    done
+
+                    echo -e -n "\n}"
+                    ;;
+
+                tasks)
+                    local _sep=
+                    echo "{"
 
                     get_task_order | while read _task
                     do
