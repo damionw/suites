@@ -576,7 +576,7 @@ get_dependency_list() {
 }
 
 has_dependencies() {
-    test "$(get_dependency_list | wc -l)" -gt 0
+    test "$(get_dependency_list | sed -e '/^[ ]*$/d' | wc -l)" -gt 0
 }
 
 #===================================================================================
@@ -765,6 +765,9 @@ supervisor() {
         #-----------------------------------------
         check_tasks ${_shutdown}
     done
+
+    # Drop existing processes
+    check_tasks shutdown
 
     # Truncate dependencies
     validate_dependencies </dev/null
