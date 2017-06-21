@@ -1,16 +1,48 @@
 #! /usr/bin/env bash
 
-source="$(awk '/__________________ UNITTEST SENTINEL ___________________/ {exit 0;} {print $0;}' < "$(which suites)")"
+suite_script="$(which suites)"
+this_pid=$BASHPID # Don't grab this inside a subprocess !
+source="$(awk '/__________________ UNITTEST SENTINEL ___________________/ {exit 0;} {print $0;}' < "${suite_script}")"
 tests_folder="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-success=true
+selection=$@
 
-test_happy_tests() {
+test_basic() {
     local success=true
-    
+
+    start_supervisor
+    sleep 6
+    pid=$(get_supervisor_status)
+
+    test -n "${pid}" || success=false
+    test "${pid}" != "null" || success=false
+    test -d /proc/${pid} || success=false
+    test "$(get_dependency_list | wc -l)" = 1 || success=false
+
+    expected_tasks="$(
+        echo "task1"
+        echo "task2"
+    )"
+
+    tasks="$(get_task_order)"
+
+    test "${tasks}" = "${expected_tasks}" || success=false
+
+    for _task in ${tasks}
+    do
+        (get_task_status "${_task}" | grep -q '^[0-9][0-9]*$') || success=false
+    done
+
+    send_dependency_deregistration_request "${PARENT_PID}"
+    sleep 8
+
+    pid=$(get_supervisor_status)
+
+    test "${pid}" = "null" || success=false
+
     $success
 }
 
-test_graph_tests() {
+test_graph() {
     local success=true
 
     expected_result() {
@@ -52,16 +84,27 @@ test_graph_tests() {
     $success
 }
 
-tests_to_run="$(declare -F | grep ' test_[^\ ][^\ ]*$' | sed -e 's/^declare -f //g')"
+all_tests="$(declare -F | grep ' test_[^\ ][^\ ]*$' | sed -e 's/^declare -f //g')"
+
+if [ -n "${selection}" ]
+then
+    regex='^('"$(echo "${selection}" | awk '{for (i=1; i <= NF; ++i) {printf("%stest_%s", sep, $i); sep="|";}}')"')$'
+    all_tests="$(echo "${all_tests}" | egrep "${regex}")"
+fi
+
 eval "${source}"
 
-for function_name in ${tests_to_run}
+PARENT_PID="$(get_process_parent "${this_pid}")"
+
+success=true
+
+for function_name in ${all_tests}
 do
     test_name="$(echo "${function_name}" | sed -e 's/^test_//g')"
 
-    if ! SUITE_FOLDER="${tests_folder}/${test_name}" "${function_name}"
+    if ! SUITE_LABEL="${function_name}" SUITE_SCRIPT="${suite_script}" SUITE_FOLDER="${tests_folder}/${test_name}" "${function_name}"
     then
-        log "${function_name}=failed"
+        log "${function_name}=fail"
         success=false
     else
         log "${function_name}=success"

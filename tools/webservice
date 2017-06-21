@@ -42,10 +42,12 @@ response::index() {
             </head>
             <body>
                 <div class=layout>
-                    <div><p>Ispum schmipsum.</p></div>
-                    <div><p>How am I doing.</p></div>
-                    <div><p>Hello.</p></div>
-                    <div><p>No way</p></div>
+                    <div>
+                        Hello
+                    </div>
+                    <div>
+                        Goodbye
+                    </div>
                 </div>
             </body>
         </html>
@@ -81,8 +83,8 @@ response::layout_css() {
             background: white;
         }
 
-        .layout > div:last-child {
-            flex-grow: 0;
+        .layout > last-child {
+            flex-grow: 1;
             background: #373737;
             min-width: 117px;
             max-width: 117px;
