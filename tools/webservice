@@ -74,7 +74,7 @@ response::index() {
                 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
                 <title>Test</title>
                 <link rel="stylesheet" href="/static/layout.css" media="screen">
-                <script type="text/javascript" language="javascript" src="/static/ajax.js"></script>
+                <script type="application/javascript" language="javascript" src="/static/ajax.js"></script>
             </head>
             <body>
                 <div class=layout>
@@ -234,8 +234,8 @@ header::application_json() {
     echo "Content-Type: application/json"
 }
 
-header::text_javascript() {
-    echo "Content-Type: text/javascript"
+header::application_javascript() {
+    echo "Content-Type: application/javascript"
 }
 
 header::text_css() {
@@ -356,7 +356,7 @@ http::response_css() {
 http::response_javascript() {
     http::response 200 "HTTP/1.1" "$(
         header::server_type
-        header::text_javascript
+        header::application_javascript
     )"
 }
 
