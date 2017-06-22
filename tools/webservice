@@ -207,6 +207,38 @@ header::text_css() {
 }
 
 #===================================================================================
+#                                TCP/IP
+#===================================================================================
+tcp::available_ports() {
+    start_port=${1:-9000}
+    protocol=${2:-tcp}
+
+    address_family=$(echo ${protocol}4 | sed -e 's/^[^0-9]*//g' | dd bs=1 count=1 2>/dev/null)
+    protocol=$(echo ${protocol} | sed -e 's/[0-9].*$//g')
+
+    netstat -ln --${protocol} -${address_family} |
+    awk '{print $4;}' |
+    awk -F: '{print $2;}' |
+    sed -e '/^[ ]*$/d' |
+    sort -n |
+    awk '{
+        for (; i < $1; ++i)
+        {
+            print i;
+        }
+
+        if (i == $1)
+        {
+            ++i;
+        }
+    }' i=${start_port}
+}
+
+tcp::unused_port() {
+    tcp::available_ports $* | head -1
+}
+
+#===================================================================================
 #                                HTTP Handlers
 #===================================================================================
 http::logging() {
@@ -216,7 +248,7 @@ http::logging() {
 }
 
 http::listen_port() {
-    echo 8089
+    tcp::unused_port
 }
 
 http::response() {

@@ -4,7 +4,7 @@
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.1
+SUITE_VERSION=0.1.2
 SUITE_FOLDER=
 SUITE_LABEL=
 FIFO_WAIT_TIME=2
@@ -322,7 +322,7 @@ get_supervisor_status() {
 }
 
 get_suite_status() {
-    local _default_selection="supervisor,tasks,dependencies,suite,ports"
+    local _default_selection="supervisor,tasks,dependencies,suite,ports,name"
     local _selection=$(echo "${*:-${_default_selection}}" | awk -F, '{for (i=1; i <= NF; ++i) {print $i;}}')
     local _separator=
     local _task
@@ -336,6 +336,10 @@ get_suite_status() {
             echo -e -n "${_separator:+"${_separator}\\n"}\"${_key}\": "
 
             case "${_key}" in
+                name)
+                    echo -n "\"$(get_suite_label)\""
+                    ;;
+
                 suite)
                     echo -n "\"$(get_suite_folder)\""
                     ;;
