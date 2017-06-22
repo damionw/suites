@@ -26,8 +26,44 @@ script::file() {
 #===================================================================================
 #                              Request Handlers
 #===================================================================================
+response::static_file() {
+    local _method="${1}"
+    local _request="${2}"
+    local _headers="${3}"
+    local _filename="$(dirname "$(script::file)")/static/$(basename "${_request}")"
+    local _extension="$(echo "${_filename}" | awk -F. '{print $NF;}' | tr '[A-Z]' '[a-z]')"
+
+    if [ ! -f "${_filename}" ]
+    then
+        http::404_error
+        return 255
+    fi
+
+    case "${_extension}" in
+        html)
+            http::response_html
+            ;;
+
+        js)
+            http::response_javascript
+            ;;
+
+        json)
+            http::response_json
+            ;;
+
+        css)
+            http::response_css
+            ;;
+
+        *)
+            http::response_plain
+            ;;
+    esac < "${_filename}"
+}
+
 response::suite_status() {
-    "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --status | http::response_javascripton
+    "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --status | http::response_json
 }
 
 response::index() {
@@ -187,23 +223,23 @@ header::server_type() {
 }
 
 header::text_html() {
-    echo "Content-Type" "text/html"
+    echo "Content-Type: text/html"
 }
 
 header::text_plain() {
-    echo "Content-Type" "text/plain"
+    echo "Content-Type: text/plain; charset=utf-8"
 }
 
 header::application_json() {
-    echo "Content-Type" "application/json"
+    echo "Content-Type: application/json"
 }
 
 header::text_javascript() {
-    echo "text/javascript"
+    echo "Content-Type: text/javascript"
 }
 
 header::text_css() {
-    echo "text/css"
+    echo "Content-Type: text/css"
 }
 
 #===================================================================================
@@ -303,7 +339,7 @@ http::response_html() {
     )"
 }
 
-http::response_javascripton() {
+http::response_json() {
     http::response 200 "HTTP/1.1" "$(
         header::server_type
         header::application_json
@@ -324,14 +360,17 @@ http::response_javascript() {
     )"
 }
 
+http::response_plain() {
+    http::response 200 "HTTP/1.1" "$(
+        header::server_type
+        header::text_plain
+    )"
+}
+
 http::handle_request() {
-    local _row
     local _method
     local _request
     local _version
-    local _url_index=
-    local _headers=
-    local _handled=false
 
     if ! read _method _request _version
     then
@@ -341,6 +380,8 @@ http::handle_request() {
 
     http::logging "${_method}" "${_request}"
 
+    local _row
+
     local _headers="$(
         while read -t 0.01 _row
         do
@@ -349,43 +390,51 @@ http::handle_request() {
     )"
 
     local _url_regex=(
-        '^\/$'
-        '^\/index.html$'
-        '^\/api\/status[\/]*$'
-        '^\/static\/ajax.js$'
-        '^\/static\/layout.css$'
+        [0]='^\/$'
+        [1]='^\/index.html$'
+        [2]='^\/api\/status[\/]*$'
+        [3]='^\/static\/ajax.js$'
+        [4]='^\/static\/layout.css$'
+        [5]='^\/static\/.*$'
     )
 
-    local _url_handlers=(
-        response::index
-        response::index
-        response::suite_status
-        response::ajax_functions
-        response::layout_css
+    local _get_handlers=(
+        [0]=response::index
+        [1]=response::index
+        [2]=response::suite_status
+        [3]=response::ajax_functions
+        [4]=response::layout_css
+        [5]=response::static_file
     )
 
-    case "${_method}" in
-        "GET")
-            for ((_url_index=0; _url_index < ${#_url_regex[@]}; ++_url_index))
-            do
-                local _regex="${_url_regex[${_url_index}]}"
-                local _handler="${_url_handlers[${_url_index}]}"
+    local _post_handlers=(
+    )
 
-                if [ -n "$(echo "${_request}" | awk "/${_regex}/"'{print $1;}')" ]
-                then
-                    "${_handler}" "${_method}" "${_request}" "${_headers}"
-                    _handled=true
-                    break
-                fi
-            done
+    local _handler
+    local _url_index
 
-            if ! ${_handled}
-            then
-                http::404_error
-            fi
-            ;;
+    for ((_url_index=0; _url_index < ${#_url_regex[@]}; ++_url_index))
+    do
+        local _regex="${_url_regex[${_url_index}]}"
+        local _handler="${_url_handlers[${_url_index}]}"
 
-        "POST")
-            ;;
-    esac
+        if [ -z "$(echo "${_request}" | awk "/${_regex}/"'{print $1;}')" ]
+        then
+            continue
+        fi
+
+        case "${_method}" in
+            "GET")
+                _handler="${_get_handlers[${_url_index}]}"
+                ;;
+
+            "POST")
+                _handler="${_post_handlers[${_url_index}]}"
+                ;;
+        esac
+
+        break
+    done
+
+    "${_handler:-"http::404_error"}" "${_method}" "${_request}" "${_headers}"
 }
