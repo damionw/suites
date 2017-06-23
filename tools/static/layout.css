@@ -1,0 +1,33 @@
+body, html {
+    margin: 0;
+    height: 100%;
+    background: beige;
+    padding: 0;
+    width: 100%;
+    overflow:hidden;
+}
+
+.layout {
+    flex-direction: row;
+    display: flex;
+    width: 100%;
+    height: auto;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+.layout > div {
+    height: 100%;
+    display: table-cell;
+    margin: 0;
+    padding-left: 5px;
+    background: white;
+}
+
+.layout > last-child {
+    flex-grow: 1;
+    background: #373737;
+    min-width: 117px;
+    max-width: 117px;
+}
