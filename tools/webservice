@@ -251,8 +251,6 @@ http::response_file() {
         return 255
     fi
 
-    logging::info "FILE [${_method}] [${_extension}]"
-
     case "${_extension}" in
         html)
             http::response_html
