@@ -322,7 +322,7 @@ get_supervisor_status() {
 }
 
 get_suite_status() {
-    local _default_selection="supervisor,tasks,dependencies,suite,ports,name"
+    local _default_selection="supervisor,tasks,dependencies,suite,name"
     local _selection=$(echo "${*:-${_default_selection}}" | awk -F, '{for (i=1; i <= NF; ++i) {print $i;}}')
     local _separator=
     local _task
@@ -352,30 +352,18 @@ get_suite_status() {
                     echo -n "[$(get_dependency_list | awk '{for (i=1; i <= NF; ++i) {printf("%s%s", sep, $i); sep=",";}}')]"
                     ;;
 
-                ports)
-                    local _sep=
-                    echo "{"
-
-                    get_task_order | while read _task
-                    do
-                        echo -e -n "${_sep:+"${_sep}\\n"}\"${_task}\": [$(get_task_ports "${_task}" | awk '{for (i=1; i <= NF; ++i) {printf("%s%d", sep, $i); sep=",";}}')]"
-                        _sep=","
-                    done
-
-                    echo -e -n "\n}"
-                    ;;
-
                 tasks)
                     local _sep=
-                    echo "{"
+                    echo "["
 
                     get_task_order | while read _task
                     do
-                        echo -e -n "${_sep:+"${_sep}\\n"}\"${_task}\": $(get_task_status ${_task})"
+                        local _ports="$(get_task_ports "${_task}" | awk '{for (i=1; i <= NF; ++i) {printf("%s%d", sep, $i); sep=",";}}')"
+                        echo -e -n "${_sep:+"${_sep}\\n"}{\"name\": \"${_task}\", \"pid\": $(get_task_status "${_task}"), \"ports\": ["${_ports}"]}"
                         _sep=","
                     done
 
-                    echo -e -n "\n}"
+                    echo -e -n "\n]"
                     ;;
 
                 *)

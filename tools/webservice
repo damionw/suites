@@ -235,7 +235,7 @@ http::response_plain() {
 }
 
 http::response_index() {
-    http_response::file GET index.html "${3}"
+    http::response_file GET index.html "${3}"
 }
 
 http::response_file() {
