@@ -2,6 +2,12 @@
 
 scriptfile="${BASH_SOURCE[0]}"
 
+headers=(
+    "HTTP/1.1 200 OK"
+)
+
+URL_REGEXES=()
+
 reactor::depends() {
    :
 }
@@ -11,7 +17,7 @@ reactor::run() {
     local _shell="$(which bash)"
     local _port="$(http::listen_port)"
 
-    http::logging "Started webserver on port ${_port}"
+    logging::info "Started webserver on port ${_port}"
 
     exec ncat -l ${_port} -k --sh-exec "'${_shell}' -c '. $(script::file); http::handle_request'"
 }
@@ -24,80 +30,78 @@ script::file() {
 }
 
 #===================================================================================
-#                              Request Handlers
+#                              Response Functions
 #===================================================================================
-response::static_file() {
-    local _method="${1}"
-    local _request="${2}"
-    local _headers="${3}"
-    local _filename="$(dirname "$(script::file)")/static/$(basename "${_request}")"
-    local _extension="$(echo "${_filename}" | awk -F. '{print $NF;}' | tr '[A-Z]' '[a-z]')"
+response::set_status() {
+    local _code="${1}"
+    local _version="${2}"
 
-    if [ ! -f "${_filename}" ]
-    then
-        http::404_error
-        return 255
-    fi
+    local HTTP_CODE=(
+        [200]="OK"
+        [400]="Bad Request"
+        [403]="Forbidden"
+        [404]="Not Found"
+        [405]="Method Not Allowed"
+        [500]="Internal Server Error"
+    )
 
-    case "${_extension}" in
-        html)
-            http::response_html
-            ;;
-
-        js)
-            http::response_javascript
-            ;;
-
-        json)
-            http::response_json
-            ;;
-
-        css)
-            http::response_css
-            ;;
-
-        *)
-            http::response 200 "HTTP/1.1" "$(
-                header::server_type
-                echo "Content-Type: $(file -b --mime-type "${_filename}")"
-            )"
-            ;;
-    esac < "${_filename}"
+    headers[0]="${_version} ${_code} ${HTTP_CODE[${_code}]}"
 }
 
-response::suite_status() {
-    "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --status | http::response_json
+response::add_header() {
+    headers[${#headers[@]}]="$*"
+}
+
+response::get_headers() {
+    local _index
+
+    for ((_index=0; _index < ${#headers[@]}; ++_index)) {
+        echo "${headers[${_index}]}"
+    }
+}
+
+response::send() {
+    # Content comes in via stdin
+    {
+        response::get_headers
+        echo
+        cat
+    } | tee /tmp/dkwtest.txt | unix2dos
 }
 
 #===================================================================================
 #                                Headers
 #===================================================================================
 header::server_type() {
-    echo "Server: ${HTTP_SCRIPT}"
+    response::add_header "Server: ${HTTP_SCRIPT}"
 }
 
 header::text_html() {
-    echo "Content-Type: text/html"
+    header::content_type text/html
 }
 
 header::text_plain() {
-    echo "Content-Type: text/plain; charset=utf-8"
+    header::content_type "text/plain; charset=utf-8"
 }
 
 header::application_json() {
-    echo "Content-Type: application/json"
+    header::content_type application/json
 }
 
 header::application_javascript() {
-    echo "Content-Type: application/javascript"
+    header::content_type application/javascript
 }
 
 header::text_css() {
-    echo "Content-Type: text/css"
+    header::content_type text/css
+}
+
+header::content_type() {
+    response::add_header "Content-Type: ${1}"
 }
 
 header::content_length() {
-    test "${1}" -gt 0 && echo "Content-Length: ${1}"
+    test "${1:-0}" -gt 0 && response::add_header "Content-Length: ${1}"
 }
 
 #===================================================================================
@@ -133,9 +137,47 @@ tcp::unused_port() {
 }
 
 #===================================================================================
+#                                URL Matching
+#===================================================================================
+url::add_handler() {
+    local _regex="${1}"
+    local _methods="${2}" # GET,POST
+    local _handler="${3}" # http::handler...
+
+    URL_REGEXES["${#URL_REGEXES[@]}"]="_regex='${_regex}'; _methods='${_methods}'; _handler='${_handler}'"
+}
+
+url::match_handler() {
+    local _method="${1}"
+    local _request="${2}"
+
+    local _regex
+    local _methods
+    local _handler
+    local _index
+
+    for ((_index=0; _index < ${#URL_REGEXES[@]}; ++_index)) {
+        eval "${URL_REGEXES[${_index}]}"
+
+        if [ -z "$(echo "${_request}" | awk "/${_regex}/"'{print $1;}')" ]
+        then
+            :
+        elif ! (echo "${_methods}" | awk -F, '{for (i=1; i <= NF; ++i) {print $i;}}' | grep -q '^'"${_method}"'$')
+        then
+            :
+        else
+            echo "${_handler}"
+            return 0
+        fi
+    }
+
+    return 255
+}
+
+#===================================================================================
 #                                HTTP Handlers
 #===================================================================================
-http::logging() {
+logging::info() {
     local _retval=$?
     echo -e "$(date '+%Y-%m-%d %H:%M:%S'): $*" >&2
     return $_retval
@@ -145,93 +187,109 @@ http::listen_port() {
     tcp::unused_port
 }
 
-http::response() {
-    # Content comes in via stdin, http code, http version, and headers come in as args
-
-    format_response() {
-        local _row
-
-        while read _row
-        do
-            echo -n -e "${_row}\r\n"
-        done
-    }
-
-    local _code="${1}"
-    local _version="${2}"
-    local _headers="${3}"
-
-    local HTTP_CODE=(
-        [200]="OK"
-        [400]="Bad Request"
-        [403]="Forbidden"
-        [404]="Not Found"
-        [405]="Method Not Allowed"
-        [500]="Internal Server Error"
-    )
-
-#    local _content="$(cat)"
-
-    {
-        echo "${_version} ${_code} ${HTTP_CODE[${_code}]}"
-        echo "${_headers}"
-#        header::content_length $(echo -n "${_content}" | wc -c)
-        echo
-        cat
-    } # | format_response
-}
-
 http::400_error() {
-    echo | http::response 400 "HTTP/1.1" "$(
-        echo "Server: ${HTTP_SCRIPT}"
-    )"
+    response::set_status 400 "HTTP/1.1"
+    header::server_type
+    response::send
 }
 
 http::404_error() {
-    echo "Not found" | http::response 404 "HTTP/1.1" "$(
-        echo "Server: ${HTTP_SCRIPT}"
-    )"
+    response::set_status 404 "HTTP/1.1"
+    header::server_type
+    response::send
 }
 
 http::response_html() {
-    http::response 200 "HTTP/1.1" "$(
-        header::server_type
-        header::text_html
-    )"
+    response::set_status 200 "HTTP/1.1"
+    header::server_type
+    header::text_html
+    response::send
 }
 
 http::response_json() {
-    http::response 200 "HTTP/1.1" "$(
-        header::server_type
-        header::application_json
-    )"
+    response::set_status 200 "HTTP/1.1"
+    header::server_type
+    header::application_json
+    response::send
 }
 
 http::response_css() {
-    http::response 200 "HTTP/1.1" "$(
-        header::server_type
-        header::text_css
-    )"
+    response::set_status 200 "HTTP/1.1"
+    header::server_type
+    header::text_css
+    response::send
 }
 
 http::response_javascript() {
-    http::response 200 "HTTP/1.1" "$(
-        header::server_type
-        header::application_javascript
-    )"
+    response::set_status 200 "HTTP/1.1"
+    header::server_type
+    header::application_javascript
+    response::send
 }
 
 http::response_plain() {
-    http::response 200 "HTTP/1.1" "$(
-        header::server_type
-        header::text_plain
-    )"
+    response::set_status 200 "HTTP/1.1"
+    header::server_type
+    header::text_plain
+    response::send
+}
+
+http::response_index() {
+    http_response::file GET index.html "${3}"
+}
+
+http::response_file() {
+    local _method="${1}"
+    local _request="${2}"
+    local _headers="${3}"
+    local _filename="$(dirname "$(script::file)")/static/$(basename "${_request}")"
+    local _extension="$(echo "${_filename}" | awk -F. '{print $NF;}' | tr '[A-Z]' '[a-z]')"
+
+    if [ ! -f "${_filename}" ]
+    then
+        http::404_error
+        return 255
+    fi
+
+    logging::info "FILE [${_method}] [${_extension}]"
+
+    case "${_extension}" in
+        html)
+            http::response_html
+            ;;
+
+        js)
+            http::response_javascript
+            ;;
+
+        json)
+            http::response_json
+            ;;
+
+        css)
+            http::response_css
+            ;;
+
+        *)
+            response::set_status 200 "HTTP/1.1"
+            header::server_type
+            header::content_type "$(file -b --mime-type "${_filename}")"
+            header::content_length "$(stat -c'%s' "${_filename}")"
+            response::send
+            ;;
+    esac < "${_filename}"
+}
+
+http::response_suite_status() {
+    "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --status | http::response_json
 }
 
 http::handle_request() {
     local _method
     local _request
     local _version
+    local _handler
+    local _row
 
     if ! read _method _request _version
     then
@@ -239,10 +297,9 @@ http::handle_request() {
         return 255
     fi
 
-    http::logging "${_method}" "${_request}"
+    logging::info "${_method}" "${_request}"
 
-    local _row
-
+    # Fetch incoming headers
     local _headers="$(
         while read -t 0.01 _row
         do
@@ -250,48 +307,16 @@ http::handle_request() {
         done | sed -e 's/\r//g' -e '/^[ ]*$/d'
     )"
 
-    local _url_regex=(
-        [0]='^\/$'
-        [1]='^\/index.html$'
-        [2]='^\/api\/status[\/]*$'
-        [3]='^\/static\/.*$'
-    )
+    url::add_handler '^\/$' GET http::response_index
+    url::add_handler '^\/index.html$' GET http::response_index
+    url::add_handler '^\/api\/status[\/]*$' GET http::response_suite_status
+    url::add_handler '^\/static\/.*$' GET http::response_file
 
-    local _get_handlers=(
-        [0]=response::index
-        [1]=response::index
-        [2]=response::suite_status
-        [3]=response::static_file
-    )
+    if ! _handler="$(url::match_handler "${_method}" "${_request}")"
+    then
+        http::404_error
+        return 255
+    fi
 
-    local _post_handlers=(
-    )
-
-    local _handler
-    local _url_index
-
-    for ((_url_index=0; _url_index < ${#_url_regex[@]}; ++_url_index))
-    do
-        local _regex="${_url_regex[${_url_index}]}"
-        local _handler="${_url_handlers[${_url_index}]}"
-
-        if [ -z "$(echo "${_request}" | awk "/${_regex}/"'{print $1;}')" ]
-        then
-            continue
-        fi
-
-        case "${_method}" in
-            "GET")
-                _handler="${_get_handlers[${_url_index}]}"
-                ;;
-
-            "POST")
-                _handler="${_post_handlers[${_url_index}]}"
-                ;;
-        esac
-
-        break
-    done
-
-    "${_handler:-"http::404_error"}" "${_method}" "${_request}" "${_headers}" | unix2dos
+    "${_handler:-"http::404_error"}" "${_method}" "${_request}" "${_headers}"
 }
