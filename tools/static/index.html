@@ -2,46 +2,18 @@
 <html lang="en-US">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>Test</title>
+        <title>Supervisor Control Panel</title>
         <link rel="stylesheet" href="layout.css" media="screen">
-        <script type="application/javascript" language="javascript" src="ajax.js"></script>
-        <script type="application/javascript" language="javascript" src="d3.min.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/ajax.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/d3.min.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/ui.js"></script>
     </head>
     <body>
-        <div class="layout">
-        </div>
+        <nav class="section"></nav>
+        <main class="section"></main>
+
         <script>
-            var layout = d3.select(".layout");
-
-            var buttons = layout
-                .classed("buttons", true)
-            ;
-
-            var button_row = layout
-                .append("div")
-                .style("display", "flex")
-                .style("flex-direction", "row")
-            ;
-
-            ajaxFunction(
-                "/api/status",
-
-                function(ajax_result){
-                    var tasks = ajax_result.tasks;
-
-                    buttons
-                        .selectAll("div")
-                        .data(tasks)
-                        .enter()
-                            .append("div")
-                            .on('click', function(d,i) { console.log(d.name);})
-                            .html(function(d,i) { return "<p>" + d.pid + " - " + d.name + "</p>";})
-                    ;
-                },
-
-                function(ajax_exception){
-                }
-            );
+            refresh();
         </script>
     </body>
 </html>

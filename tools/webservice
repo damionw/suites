@@ -190,13 +190,13 @@ http::listen_port() {
 http::400_error() {
     response::set_status 400 "HTTP/1.1"
     header::server_type
-    response::send
+    echo "ERROR" | response::send
 }
 
 http::404_error() {
     response::set_status 404 "HTTP/1.1"
     header::server_type
-    response::send
+    echo "ERROR" | response::send
 }
 
 http::response_html() {
@@ -244,6 +244,8 @@ http::response_file() {
     local _headers="${3}"
     local _filename="$(dirname "$(script::file)")/static/$(basename "${_request}")"
     local _extension="$(echo "${_filename}" | awk -F. '{print $NF;}' | tr '[A-Z]' '[a-z]')"
+
+    logging::info "[${_method}] [${_request}]"
 
     if [ ! -f "${_filename}" ]
     then
