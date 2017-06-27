@@ -1,56 +1,68 @@
 .section {
-/*    flex: 1;*/
-    -moz-border-radius: 10px;
-    -webkit-border-radius: 10px;
     border-radius: 10px;
-    background: #014464;
-    background: -moz-linear-gradient(top, #0272a7, #013953);
-    background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#0272a7), to(#013953));
     border: 1px solid #002232;
-    -moz-box-shadow:inset 0px 0px 1px #edf9ff;
-    -webkit-box-shadow:inset 0px 0px 1px #edf9ff;
-    box-shadow:inset 0px 0px 1px #edf9ff;
+    margin: 6px;
     display: flex;
     flex-direction: column;
-    margin: 6px;
 }
 
-#supervisor {
+.section > .header {
+    text-align: center;
+}
+
+.section > .header > div {
+    display: inline-block;
+    text-align: center;
+    font-size: 20px;
+    margin: 5px;
+    margin-top: 10px;
     margin-bottom: 20px;
+    padding: 10px;
+    background: beige;
+    max-width: 200px;
+    -moz-border-radius: 6px;
+    -webkit-border-radius: 6px;
+    border-radius: 6px;
 }
 
-#tasks {
-    height: 100%;
-}
-
-.options-panel {
+.section > .control {
     display: flex;
     flex-direction: row;
 }
 
-.button-panel {
-    flex: 1;
-    max-width: 120px;
+.section > .control > .navigator {
 }
 
-.info-panel {
-    flex: 1;
-    border: 2px solid black;
-    -moz-border-radius: 6px;
-    -webkit-border-radius: 6px;
-    border-radius: 6px;
-    margin-left: 10px;
-    margin-right: 10px;
-    margin-bottom: 20px;
-    background: beige;
+.section > .control > .info {
+    table-layout: auto;
+    display: table;
 }
 
-.section-label {
-    text-align: center;
+.section > .control > .info > div {
+    margin: 4px;
+    display: table-row;
+}
 
+.section > .control > .info > div > div {
+    display: table-cell;
+    padding: 5px;
+    margin: 10px;
+}
+
+.section > .control > .info > div > div:first-child {
+    margin-right: 20px;
+    color: blue;
+    text-align: left;
     font-size: 20px;
-    padding: 10px;
-    color: white;
+}
+
+.section > .control > .info > div > div:last-child {
+    text-align: left;
+    font-size: 20px;
+}
+
+#tasks {
+    height: 100%;
 }
 
 .task-button {
@@ -75,7 +87,6 @@
     cursor: pointer;
     padding: 5px 10px 5px 10px;
     margin: 10px;
-
     max-width: 120px;
 }
 
@@ -87,4 +98,12 @@
     background-image: -o-linear-gradient(top, #1de05b, #17a364);
     background-image: linear-gradient(to bottom, #1de05b, #17a364);
     text-decoration: none;
+}
+
+.tab-button {
+    cursor: pointer;
+}
+
+.tab-button.selected {
+    background: #1de05b;
 }

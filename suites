@@ -795,6 +795,8 @@ showhelp() {
         echo "[--deregister=<pid>]"
         echo "[--register=<pid>]"
         echo "[--kill|--restart <taskname>]"
+        echo "[--enable=<taskname>]"
+        echo "[--disable=<taskname>]"
         echo "[--version]"
         echo "[--status]"
         echo "[--start]"
