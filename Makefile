@@ -14,6 +14,7 @@ build:
 	@install -d $(BUILD_DIR)/bin $(BUILD_DIR)/share/Suites
 	@install -m 555 suites $(BUILD_DIR)/bin
 	@cp -r examples tools $(BUILD_DIR)/share/Suites/.
+	@curl https://d3js.org/d3.v4.min.js -o $(BUILD_DIR)/share/Suites/tools/static/d3.min.js
 
 tests:
 	@PATH="$(LOCAL_DIR):$(PATH)" unittests/testsuite
