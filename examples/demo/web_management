@@ -1,0 +1,17 @@
+#! /usr/bin/env bash
+
+reactor::depends() {
+   :
+}
+
+reactor::run() {
+    local_folder="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+    static_folder="$(readlink "${local_folder}"/../../static)"
+    module_folder="$(readlink "${local_folder}"/../../plugins)"
+
+    webserve \
+        --static="${static_folder}" \
+        --module="${module_folder}/management_plugin" \
+        --port=11100
+}
+

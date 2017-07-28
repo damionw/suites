@@ -1,0 +1,89 @@
+#! /usr/bin/env bash
+
+http::suites::url_mappings() {
+    url::add_handler '^\/$' GET http::suites::response_index
+    url::add_handler '^\/index.html$' GET http::suites::response_index
+    url::add_handler '^\/api\/status[\/]*$' GET http::response_suite_status
+    url::add_handler '^\/static\/.*$' GET http::response_file
+    url::add_handler '^\/api\/control\/stop_supervisor[\/]*$' POST http::suites::response_stop_supervisor
+    url::add_handler '^\/api\/control\/restart_task[\/][^\/]*[\/]*$' POST http::suites::response_restart_task
+    url::add_handler '^\/api\/control\/enable_task[\/][^\/]*[\/]*$' POST http::suites::response_enable_task
+    url::add_handler '^\/api\/control\/disable_task[\/][^\/]*[\/]*$' POST http::suites::response_disable_task
+}
+
+http::suites::response_index() {
+    http::response_file GET index.html "${3}"
+}
+
+http::suites::response_suite_status() {
+    "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --status | http::response_json
+}
+
+http::suites::response_stop_supervisor() {
+    logging::info STOP SUPERVISOR
+
+    result=$(
+        if "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --stop
+        then
+            echo "success"
+        else
+            echo "failed"
+        fi
+    )
+
+    echo "{\"action\": \"stop_supervisor\", \"result\": \"${result}\"}" | http::response_json
+}
+
+http::suites::response_restart_task() {
+    local _method="${1}"
+    local _request="${2}"
+    local _headers="${3}"
+    local _task="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
+
+    result=$(
+        if "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --kill "${_task}"
+        then
+            echo "success"
+        else
+            echo "failed"
+        fi
+    )
+
+    echo "{\"action\": \"restart_task\", \"result\": \"${result}\"}" | http::response_json
+}
+
+http::suites::response_enable_task() {
+    local _method="${1}"
+    local _request="${2}"
+    local _headers="${3}"
+    local _task="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
+
+    result=$(
+        if "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --enable "${_task}"
+        then
+            echo "success"
+        else
+            echo "failed"
+        fi
+    )
+
+    echo "{\"action\": \"enable_task\", \"result\": \"${result}\"}" | http::response_json
+}
+
+http::suites::response_disable_task() {
+    local _method="${1}"
+    local _request="${2}"
+    local _headers="${3}"
+    local _task="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
+
+    result=$(
+        if "${SUITE_SCRIPT}" --suite="$(dirname "$(script::file)")" --disable "${_task}"
+        then
+            echo "success"
+        else
+            echo "failed"
+        fi
+    )
+
+    echo "{\"action\": \"disable_task\", \"result\": \"${result}\"}" | http::response_json
+}

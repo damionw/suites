@@ -1,27 +1,47 @@
-LOCAL_DIR := $(shell pwd)
-BUILD_DIR := $(LOCAL_DIR)/build
 INSTALL_PREFIX := /usr/local
 MAKE := make
 
-.PHONY: tests build
+.PHONY: tests clean
 
-all: tests build
+all: build build/share/Suites/tools/webserve build/share/Suites/static/d3.min.js build/share/Suites/static/ajax.js
+	@rsync -az tools/static/ build/share/Suites/static/
+	@rsync -az tools/plugins/ build/share/Suites/plugins/
+	@rsync -az tools/profile.d/ build/share/Suites/profile/
+	@rsync -az examples/ build/share/Suites/examples/
 
-install: build
-	cd $(BUILD_DIR)/. && find . -print | cpio -pdum $(INSTALL_PREFIX)/.
+install: tests
+	@rsync -az build/ $(INSTALL_PREFIX)/
+
+build/share/Suites/tools/webserve: build checkouts/webserve
+	@rsync -az checkouts/webserve/build/bin/$(notdir $@) $@
+
+build/share/Suites/static/d3.min.js: build
+	@curl -q -s https://d3js.org/d3.v4.min.js -o $@
+
+build/share/Suites/static/ajax.js: build checkouts/recipes
+	@cp checkouts/recipes/www/js/ajax/$(notdir $@) $@
+
+checkouts/recipes: checkouts
+	@git clone https://github.com/damionw/recipes.git $@
+	@touch checkouts/*
+
+checkouts/webserve: checkouts
+	@git clone https://github.com/damionw/webserve.git $@
+	@$(MAKE) -C $@ tests
 
 build:
-	@install -d $(BUILD_DIR)/bin $(BUILD_DIR)/share/Suites
-	@install -m 555 suites $(BUILD_DIR)/bin
-	@cp -r examples tools $(BUILD_DIR)/share/Suites/.
-	@curl https://d3js.org/d3.v4.min.js -o $(BUILD_DIR)/share/Suites/tools/static/d3.min.js
+	@install -d build/bin build/share/Suites build/share/Suites/static build/share/Suites/tools
+	@install -m 555 suites build/bin
 
-tests:
-	@PATH="$(LOCAL_DIR):$(PATH)" unittests/testsuite
+checkouts:
+	@mkdir checkouts
+
+tests: all
+	@PATH="$(shell readlink -f build/bin):$(PATH)" unittests/testsuite
 
 clean:
 	-@rm -rf unittests/*/.log
 	-@rm -rf unittests/*/.run
 	-@rm -rf examples/*/.log
 	-@rm -rf examples/*/.run
-	-@rm -rf $(BUILD_DIR)
+	-@rm -rf build checkouts
