@@ -1,17 +1,14 @@
 #! /usr/bin/env bash
+set -x
 
-reactor::depends() {
-   :
-}
+script_file="$(readlink -f "${BASH_SOURCE[0]}")"
+local_folder="$(dirname "${script_file}")"
+share_folder="$(readlink -f "${local_folder}/../..")"
+suite_folder="${__SUITE_FOLDER__}"
 
 reactor::run() {
-    local_folder="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-    static_folder="$(readlink "${local_folder}"/../../static)"
-    module_folder="$(readlink "${local_folder}"/../../plugins)"
-
-    webserve \
-        --static="${static_folder}" \
-        --module="${module_folder}/management_plugin" \
+    "${share_folder}/tools/webserve" \
+        --static="${share_folder}/static" \
+        --module="${share_folder}/plugins/management_plugin" \
         --port=11100
 }
-

@@ -825,8 +825,8 @@ then
     # in supervisor mode
     #-------------------------------
 
-    SUITE_FOLDER="${__SUITE_FOLDER__}"
-    SUITE_LABEL="${__SUITE_LABEL__}"
+    export SUITE_FOLDER="${__SUITE_FOLDER__}"
+    export SUITE_LABEL="${__SUITE_LABEL__}"
     export -n __SUITE_FOLDER__ __SUITE_LABEL__
     supervisor
     exit 0
