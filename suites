@@ -827,6 +827,7 @@ then
 
     export SUITE_FOLDER="${__SUITE_FOLDER__}"
     export SUITE_LABEL="${__SUITE_LABEL__}"
+    export -f get_unused_port get_available_ports
     export -n __SUITE_FOLDER__ __SUITE_LABEL__
     supervisor
     exit 0

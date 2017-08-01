@@ -46,7 +46,9 @@ checkouts:
 	@mkdir checkouts
 
 tests: all
+	@echo "Running testsuite..."
 	@PATH="$(shell readlink -f build/bin):$(PATH)" unittests/testsuite
+	@echo "Done running testsuite"
 
 clean:
 	-@rm -rf unittests/*/.log

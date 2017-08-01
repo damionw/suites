@@ -14,5 +14,5 @@ reactor::run() {
     exec "${share_folder}/tools/webserve" \
         --static="${share_folder}/static" \
         --module="${share_folder}/plugins/management_plugin" \
-        --port=11100
+        --port=$(get_unused_port || echo 11111)
 }
