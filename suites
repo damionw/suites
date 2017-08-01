@@ -635,7 +635,7 @@ start_supervisor() {
         log "Supervisor is already running"
     else
         __SUITE_FOLDER__="${_suite_folder}" __SUITE_LABEL__="${_label}" "${_shell}" -c "exec 10<&0 11>&1 12>&2; exec -a '${_label}::supervisor' '${_shell}' <<< '. ${_script}'" & _pid=$!
-        log "Supervisor started as process ${_pid}"
+        log "Supervisor started as 'process ${_pid}"
     fi
 
     # Tell supervisor that the caller is a dependent

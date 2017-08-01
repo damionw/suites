@@ -16,14 +16,14 @@ http::suites::response_index() {
 }
 
 http::suites::response_suite_status() {
-    suites --suite="${__SUITE_FOLDER__}" --status | http::response_json
+    suites --suite="${SUITE_FOLDER}" --status | http::response_json
 }
 
 http::suites::response_stop_supervisor() {
     logging::info STOP SUPERVISOR
 
     result=$(
-        if suites --suite="${__SUITE_FOLDER__}" --stop
+        if suites --suite="${SUITE_FOLDER}" --stop
         then
             echo "success"
         else
@@ -41,7 +41,7 @@ http::suites::response_restart_task() {
     local _task="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
 
     result=$(
-        if suites --suite="${__SUITE_FOLDER__}" --kill "${_task}"
+        if suites --suite="${SUITE_FOLDER}" --kill "${_task}"
         then
             echo "success"
         else
@@ -59,7 +59,7 @@ http::suites::response_enable_task() {
     local _task="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
 
     result=$(
-        if suites --suite="${__SUITE_FOLDER__}" --enable "${_task}"
+        if suites --suite="${SUITE_FOLDER}" --enable "${_task}"
         then
             echo "success"
         else
@@ -77,7 +77,7 @@ http::suites::response_disable_task() {
     local _task="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
 
     result=$(
-        if suites --suite="${__SUITE_FOLDER__}" --disable "${_task}"
+        if suites --suite="${SUITE_FOLDER}" --disable "${_task}"
         then
             echo "success"
         else
