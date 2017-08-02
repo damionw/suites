@@ -2,15 +2,13 @@
 
 script_file="$(readlink -f "${BASH_SOURCE[0]}")"
 local_folder="$(dirname "${script_file}")"
-share_folder="$(readlink -f "${local_folder}/../..")"
+share_folder="$(readlink -f "${local_folder}/..")"
 
 reactor::depends() {
     :
 }
 
 reactor::run() {
-    trap exit 1 2 3 15
-
     exec "${share_folder}/tools/webserve" \
         --static="${share_folder}/static" \
         --module="${share_folder}/plugins/management_plugin" \
