@@ -476,7 +476,7 @@ start_task() {
     local _pid=
 
     # Launch the task using the reactor interface
-    "${_shell}" -c "exec </dev/null >>'${_logfile}' 2>&1 10<&- 11>&- 12>&- 13<&- 14>&-; exec -a '${_label}::${_task}' '${_shell}' <<< '. ${_script}; reactor::run ${_task}'" & _pid=$!
+    "${_shell}" -c "exec </dev/null >>'${_logfile}' 2>&1 10<&- 11>&- 12>&- 13<&- 14>&-; exec -a '${_label}::${_task}' '${_shell}' <<< '. ${_script}; trap exit 1 2 3 15; reactor::run ${_task}'" & _pid=$!
     log "Started task '${_task}' as process ${_pid}"
     echo "${_pid}" > "${_pidfile}"
 }

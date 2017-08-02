@@ -5,5 +5,5 @@ reactor::depends() {
 }
 
 reactor::run() {
-    sleep 30
+    exec sleep 30
 }

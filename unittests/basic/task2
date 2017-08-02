@@ -6,5 +6,5 @@ reactor::depends() {
 
 reactor::run() {
     echo "RUNNING $1"
-    sleep 86400
+    exec sleep 33333
 }

@@ -6,6 +6,7 @@ MAKE_PID := $(shell ps --pid=$$$$ --no-heading -o ppid)
 
 all: build build/share/Suites/tools/webserve build/share/Suites/static/d3.min.js build/share/Suites/static/ajax.js
 	@rsync -az tools/static/ build/share/Suites/static/
+	@rsync -az tools/reactors/ build/share/Suites/reactors/
 	@rsync -az tools/plugins/ build/share/Suites/plugins/
 	@rsync -az tools/profile.d/ build/share/Suites/profile/
 	@rsync -az examples/ build/share/Suites/examples/

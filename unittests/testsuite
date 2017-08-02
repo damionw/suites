@@ -32,11 +32,12 @@ test_basic() {
         (get_task_status "${_task}" | grep -q '^[0-9][0-9]*$') || success=false
     done
 
+    # Deregister the only dependent process
     send_dependency_deregistration_request "${PARENT_PID}"
     sleep 8
 
+    # Ensure that the supervisor shuts itself down
     pid=$(get_supervisor_status)
-
     test "${pid}" = "null" || success=false
 
     $success
