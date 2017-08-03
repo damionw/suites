@@ -4,7 +4,7 @@
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.4
+SUITE_VERSION=0.1.5
 SUITE_FOLDER=
 SUITE_LABEL=
 FIFO_WAIT_TIME=2
@@ -221,7 +221,17 @@ is_process_alive() {
 #                        Task Information
 #===================================================================================
 get_task_names() {
-    find "$(get_suite_folder)/." -maxdepth 1 -mindepth 1 -name '[a-zA-Z]*' -xtype f -exec grep -q '^reactor::run()' '{}' \; -printf "%f\n" | sort
+    local _folder="$(get_suite_folder)"
+    local _shell="$(which bash)"
+
+    find "${_folder}/." \
+        -maxdepth 1 \
+        -mindepth 1 \
+        -name '[a-zA-Z]*' \
+        -xtype f \
+        -exec "${_shell}" -c '. {}; declare -F reactor::run >/dev/null 2>&1' \; \
+        -printf "%f\n" |
+    sort
 }
 
 get_tasks_graph() {
