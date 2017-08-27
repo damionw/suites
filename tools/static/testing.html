@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en-US">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Supervisor Control Panel</title>
+
+        <link rel="stylesheet" href="/static/panel_layout.css" media="screen">
+        <link rel="stylesheet" href="/static/navigation.css" media="screen">
+
+        <script type="application/javascript" language="javascript" src="/static/ajax.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/d3.min.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/admin.js"></script>
+
+        <style>
+            body, html {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                height: calc(100% - 2px);
+                width: calc(100% - 1px);
+                overflow: hidden;
+            }
+
+            .header > *, .panel > *, .content > * {
+                padding: 10px;
+            }
+
+            .header {
+                background: #00b0e0;
+                padding: 10px;
+            }
+
+            .panel {
+                background: #404040;
+                color: #a0a0f0;
+                padding: 10px;
+            }
+
+            .main {
+                background: beige;
+                padding: 10px;
+            }
+
+            .subtitle {
+                text-align: center;
+                font-size: 20px;
+                width: 100%;
+                color: white;
+            }
+
+            .banner {
+                text-align: center;
+                font-size: 24px;
+                width: 100%;
+                color: yellow;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="frame">
+            <div class="header">
+                <div class="banner">
+                    Suites Web Administration
+                </div>
+
+                <div class="subtitle suite_label">
+                </div>
+            </div>
+
+            <div class="main">
+                <div class="panel" id="panel">
+                    <div class="banner" id="tasks">
+                        Tasks
+                    </div>
+
+                    <details>
+                        <summary>First Section</summary>
+                        <div>One</div>
+                        <div>Two</div>
+                        <div class="disabled">Three</div>
+                        <div>Four</div>
+                    </details>
+
+                    <details>
+                        <summary>Second Section</summary>
+                        <div>A</div>
+                        <div>B</div>
+                        <div>C</div>
+                    </details>
+
+                    <div class="banner">
+                        More notes
+                    </div>
+                </div>
+
+                <div class="content">
+                    Content
+                </div>
+            </div>
+        </div>
+
+        <script>
+            refresh();
+        </script>
+    </body>
+</html>

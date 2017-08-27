@@ -1,0 +1,54 @@
+#panel {
+    display: table;
+/*                 background-color: hsla(120, 100%, 40%, 1); */
+    background: #2f2f2f;
+    height: 100%;
+    color: white;
+}
+
+#panel > * {
+    padding-left: 10px;
+    padding-right: 20px;
+    padding-top: 10px;
+    padding-bottom: 4px;
+}
+
+#panel > div {
+    padding-left: 10px;
+    padding-right: 0px;
+}
+
+#panel > details {
+    padding-left: 20px;
+    text-align: left;
+    color: #b0b0f0;
+}
+
+#panel > details > summary {
+    cursor: pointer;
+    font-size: 20px;
+    color: #b0b0f0;
+}
+
+#panel > details > summary:focus {
+    outline: 0;
+}
+
+#panel > details > *:not(summary) + .disabled {
+    color: grey;
+}
+
+#panel > details > *:not(summary) {
+    padding-left: 30px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    font-size: 18px;
+    color: white;
+    cursor: pointer;
+    text-align: left;
+}
+
+#panel > details > *:not(summary):hover:not(.disabled) {
+    background-color: rgba(255,255,255,0.1); /* Lighten whatever background color is there */
+    font-size: 22px;
+}

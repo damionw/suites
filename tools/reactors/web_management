@@ -2,11 +2,13 @@
 
 script_file="$(readlink -f "${BASH_SOURCE[0]}")"
 local_folder="$(dirname "${script_file}")"
-share_folder="$(readlink -f "${local_folder}/..")"
+share_folder="${local_folder}"
 
-reactor::depends() {
-    :
-}
+# Search upwards for share folder
+while [ -n "${share_folder}" -a "$(basename "${share_folder}")" != "Suites" ]
+do
+    share_folder="$(dirname "${share_folder}")"
+done
 
 reactor::run() {
     exec "${share_folder}/tools/webserve" \

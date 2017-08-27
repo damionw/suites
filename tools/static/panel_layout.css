@@ -1,0 +1,30 @@
+.frame {
+    height: 100%;
+    width: 100%;
+    display: table;
+}
+
+.header {
+    height: 0;
+    margin: 2px;
+    display: table-row;
+}
+
+.main {
+    vertical-align: top;
+    display: table-row;
+}
+
+.panel {
+    width: auto;
+    vertical-align: top;
+    height: 100%;
+    display: inline-block;
+}
+
+.content {
+    height: 100%;
+    vertical-align: top;
+    padding: 5px;
+    display: inline-block;
+}
