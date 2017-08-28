@@ -50,5 +50,5 @@
 
 #panel > details > *:not(summary):hover:not(.disabled) {
     background-color: rgba(255,255,255,0.1); /* Lighten whatever background color is there */
-    font-size: 22px;
+/*     font-size: 22px; */
 }

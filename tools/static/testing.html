@@ -54,6 +54,25 @@
                 width: 100%;
                 color: yellow;
             }
+
+            .menu_selection {
+                text-align: center;
+/*                padding-left: 60px;*/
+                padding-top: 2px;
+                padding-bottom: 2px;
+                font-size: 18px;
+                color: white;
+                cursor: pointer;
+            }
+
+            .menu_selection + .disabled {
+                color: grey;
+            }
+
+            .menu_selection:hover:not(.disabled) {
+                background-color: rgba(255,255,255,0.1); /* Lighten whatever background color is there */
+            }
+
         </style>
     </head>
     <body>
@@ -69,27 +88,19 @@
 
             <div class="main">
                 <div class="panel" id="panel">
+                    <div class="banner" id="supervisor">
+                        Supervisor
+                    </div>
+
+                    <div class="menu_selection">Start</div>
+                    <div class="menu_selection">Stop</div>
+
                     <div class="banner" id="tasks">
                         Tasks
                     </div>
 
-                    <details>
-                        <summary>First Section</summary>
-                        <div>One</div>
-                        <div>Two</div>
-                        <div class="disabled">Three</div>
-                        <div>Four</div>
-                    </details>
-
-                    <details>
-                        <summary>Second Section</summary>
-                        <div>A</div>
-                        <div>B</div>
-                        <div>C</div>
-                    </details>
-
                     <div class="banner">
-                        More notes
+                        Info
                     </div>
                 </div>
 

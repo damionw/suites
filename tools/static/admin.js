@@ -19,9 +19,66 @@ function update_title(title) {
 }
 
 function update_tasks(tasks) {
-//     d3.select("#tasks")
-//         .each(function() {d3.select(this.node().previousSibling);})
-//         .
+    function get_insert_point() {
+        var on = false;
+        var list = [];
+
+        d3.select("#panel")
+            .selectAll(
+                function() {
+                    return this.childNodes;
+                }
+            )
+            .each(
+                function() {
+                    if (this == d3.select("#tasks").node()) {
+                        on = true;
+                        list.push(this);
+                    } else if (! on) {
+                    } else if (this.tagName == "DETAILS") {
+                        list.push(this);
+                    } else if (this.tagName) {
+                        on = false;
+                    }
+                }
+            )
+        ;
+
+        return list[list.length - 1].nextElementSibling;
+    }
+
+    d3.selectAll("#panel > ._synthetic")
+        .remove()
+    ;
+
+    d3.select("#panel")
+        .selectAll(
+            function() {return [];}
+        )
+        .data(tasks)
+        .enter()
+            .each(
+                function(d) {
+                    var element = document.createElement("details");
+                    var name = d.name;
+
+                    d3.select("#panel").node().insertBefore(element, get_insert_point());
+
+                    var d3_element = d3.select(element);
+                    
+                    d3_element
+                        .classed("_synthetic", true)
+                        .append("summary")
+                        .text(function() {return name;})
+                    ;
+                    
+                    d3_element
+                        .append("div")
+                        .text("Dashboard")
+                    ;
+                }
+            )
+        ;
 }
 
 
