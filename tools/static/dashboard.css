@@ -2,11 +2,7 @@
     border-radius: 10px;
     border: 1px solid #002232;
     margin: 6px;
-    display: table-cell;
-/*    display: flex;
-    flex-direction: column;*/
+    overflow: auto;
     background: white;
-/*     height: calc(100% - 22px); /* HACK !!! */ */
-    height: 100%;
-    width: 100%;
+    height: calc(100% - 30px);
 }
