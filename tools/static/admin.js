@@ -159,7 +159,8 @@ function load_supervisor_dashboard(supervisor_info) {
             [
                 ["Suite", supervisor_info.name],
                 ["Path", supervisor_info.suite],
-                ["Process ID", supervisor_info.supervisor]
+                ["Process ID", supervisor_info.supervisor],
+                ["Dependent Processes", supervisor_info.dependencies.sort().join(",")]
             ]
         )
         .enter()
@@ -194,7 +195,7 @@ function load_task_dashboard(task_descriptor) {
             [
                 ["Task", task_descriptor.name],
                 ["Process ID", task_descriptor.pid],
-                ["Ports", task_descriptor.ports.join(",")]
+                ["Ports", task_descriptor.ports.sort().join(",")]
             ]
         )
         .enter()
