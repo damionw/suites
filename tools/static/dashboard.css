@@ -6,3 +6,25 @@
     background: white;
     height: calc(100% - 30px);
 }
+
+.dashboard > table {
+    table-layout: fixed;
+    padding: 5px;
+}
+
+.dashboard > table > tr > td {
+    vertical-align: bottom;
+    padding: 5px;
+    font-size: 22px;
+}
+
+.dashboard > table > tr > td:first-of-type {
+    color: blue;
+    border-radius: 3px;
+    margin-right: 30px;
+    width: 0;
+}
+
+.dashboard > table > tr > :not(td:first-of-type {
+    color: black;
+}

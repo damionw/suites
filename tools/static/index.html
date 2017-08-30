@@ -3,35 +3,102 @@
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Supervisor Control Panel</title>
-        <link rel="stylesheet" href="/static/layout.css" media="screen">
+
+        <link rel="stylesheet" href="/static/panel_layout.css" media="screen">
+        <link rel="stylesheet" href="/static/navigation.css" media="screen">
+        <link rel="stylesheet" href="/static/dashboard.css" media="screen">
+
         <script type="application/javascript" language="javascript" src="/static/ajax.js"></script>
         <script type="application/javascript" language="javascript" src="/static/d3.min.js"></script>
-        <script type="application/javascript" language="javascript" src="/static/ui.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/admin.js"></script>
+
+        <style>
+            body, html {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                height: calc(100% - 2px);
+                width: calc(100% - 1px);
+                overflow: hidden;
+            }
+
+            .header > *, .panel > *, .content > * {
+                padding: 10px;
+            }
+
+            .header {
+                background: #00b0e0;
+                padding: 10px;
+            }
+
+            .panel {
+                background: #404040;
+                color: #a0a0f0;
+                padding: 10px;
+            }
+
+            .main {
+                background: beige;
+                padding: 10px;
+            }
+
+            .subtitle {
+                text-align: center;
+                font-size: 20px;
+                width: 100%;
+                color: white;
+            }
+
+            .banner {
+                text-align: center;
+                font-size: 24px;
+                width: 100%;
+                color: yellow;
+            }
+
+            .menu_selection {
+                text-align: center;
+                padding-top: 2px;
+                padding-bottom: 2px;
+                font-size: 18px;
+                color: white;
+                cursor: pointer;
+            }
+
+            .menu_selection + .disabled {
+                color: grey;
+            }
+
+            .menu_selection:hover:not(.disabled) {
+                background-color: rgba(255,255,255,0.1); /* Lighten whatever background color is there */
+            }
+
+        </style>
     </head>
     <body>
-        <div id="supervisor" class="section">
+        <div class="frame">
             <div class="header">
-                <div>
-                    Supervisor Details
+                <div class="banner">
+                    Suites Web Administration
+                </div>
+
+                <div class="subtitle suite_label">
                 </div>
             </div>
 
-            <div class="control">
-                <div class="navigator">
-                </div>
-                <div class="info">
-                </div>
-            </div>
-        </div>
+            <div class="main">
+                <div class="panel" id="panel">
+                    <div class="banner" id="supervisor">
+                        Supervisor
+                    </div>
 
-        <div id="tasks" class="section">
-            <div id="task-buttons" class="header">
-            </div>
-
-            <div class="control">
-                <div class="navigator">
+                    <div class="banner" id="tasks">
+                        Tasks
+                    </div>
                 </div>
-                <div class="info">
+
+                <div id="dashboard_surface" class="content">
+                    Content
                 </div>
             </div>
         </div>

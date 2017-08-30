@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html lang="en-US">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Supervisor Control Panel</title>
+        <link rel="stylesheet" href="/static/layout.css" media="screen">
+        <script type="application/javascript" language="javascript" src="/static/ajax.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/d3.min.js"></script>
+        <script type="application/javascript" language="javascript" src="/static/ui.js"></script>
+    </head>
+    <body>
+        <div id="supervisor" class="section">
+            <div class="header">
+                <div>
+                    Supervisor Details
+                </div>
+            </div>
+
+            <div class="control">
+                <div class="navigator">
+                </div>
+                <div class="info">
+                </div>
+            </div>
+        </div>
+
+        <div id="tasks" class="section">
+            <div id="task-buttons" class="header">
+            </div>
+
+            <div class="control">
+                <div class="navigator">
+                </div>
+                <div class="info">
+                </div>
+            </div>
+        </div>
+
+        <script>
+            refresh();
+        </script>
+    </body>
+</html>

@@ -21,6 +21,7 @@
     vertical-align: top;
     height: 100%;
     float: left;
+    overflow: auto;
 }
 
 .frame > .main > .content {
@@ -30,5 +31,4 @@
     padding: 2px;
     overflow: hidden;
     color: black;
-/*     border: 3px solid green; /* DEBUG !!! */ */
 }
