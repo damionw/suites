@@ -95,4 +95,16 @@ function refresh_context() {
     );
 }
 
+function load_supervisor_dashboard() {
+    d3.select("#dashboard_surface")
+        .html("");
+    ;
+    
+    d3.select("#dashboard_surface")
+        .append("div")
+        .classed("dashboard", true)
+        .text("wish you were here")
+    ;
+}
+
 Window.management_context = management_context;

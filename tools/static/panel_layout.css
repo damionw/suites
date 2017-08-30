@@ -4,27 +4,31 @@
     display: table;
 }
 
-.header {
+.frame > .header {
     height: 0;
     margin: 2px;
     display: table-row;
 }
 
-.main {
+.frame > .main {
     vertical-align: top;
     display: table-row;
+    overflow: hidden;
 }
 
-.panel {
+.frame > .main > .panel {
     width: auto;
     vertical-align: top;
     height: 100%;
-    display: inline-block;
+    float: left;
 }
 
-.content {
+.frame > .main > .content {
     height: 100%;
+    width: auto;
     vertical-align: top;
-    padding: 5px;
-    display: inline-block;
+    padding: 2px;
+    overflow: hidden;
+    color: black;
+    border: 3px solid green; /* DEBUG !!! */
 }

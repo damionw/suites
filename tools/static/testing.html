@@ -6,6 +6,7 @@
 
         <link rel="stylesheet" href="/static/panel_layout.css" media="screen">
         <link rel="stylesheet" href="/static/navigation.css" media="screen">
+        <link rel="stylesheet" href="/static/dashboard.css" media="screen">
 
         <script type="application/javascript" language="javascript" src="/static/ajax.js"></script>
         <script type="application/javascript" language="javascript" src="/static/d3.min.js"></script>
@@ -57,7 +58,6 @@
 
             .menu_selection {
                 text-align: center;
-/*                padding-left: 60px;*/
                 padding-top: 2px;
                 padding-bottom: 2px;
                 font-size: 18px;
@@ -92,8 +92,7 @@
                         Supervisor
                     </div>
 
-                    <div class="menu_selection">Start</div>
-                    <div class="menu_selection">Stop</div>
+                    <div class="menu_selection" onclick="load_supervisor_dashboard();">Supervisor Dashboard</div>
 
                     <div class="banner" id="tasks">
                         Tasks
@@ -104,7 +103,7 @@
                     </div>
                 </div>
 
-                <div class="content">
+                <div id="dashboard_surface" class="content">
                     Content
                 </div>
             </div>
