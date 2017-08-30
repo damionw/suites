@@ -150,17 +150,27 @@ function load_supervisor_dashboard(supervisor_info) {
         .html("");
     ;
     
-    d3.select("#dashboard_surface")
+    var d3_table = d3.select("#dashboard_surface")
         .append("div")
-        .classed("dashboard ", true)
+        .classed("dashboard", true)
         .append("table")
+    ;
+
+    d3_table
+        .append("tr")
+        .classed("dashboard-header", true)
+        .text("Supervisor State")
+        .style("color", "green")
+        .style("font-size", "22px")
+    ;
+
+    d3_table
         .selectAll("tr")
         .data(
             [
                 ["Suite", supervisor_info.name],
                 ["Path", supervisor_info.suite],
-                ["Process ID", supervisor_info.supervisor],
-                ["Dependent Processes", supervisor_info.dependencies.sort().join(",")]
+                ["Process ID", supervisor_info.supervisor]
             ]
         )
         .enter()
@@ -179,23 +189,69 @@ function load_supervisor_dashboard(supervisor_info) {
                 }
             )
     ;
+
+    d3_table
+        .append("tr")
+        .classed("dashboard-header", true)
+        .text("Dependent Processes")
+        .style("color", "green")
+        .style("font-size", "22px")
+    ;
+
+    d3_table
+        .selectAll(function(){return [];})
+        .data(supervisor_info.dependencies.sort())
+        .enter()
+            .append("tr")
+            .each(
+                function(pid) {
+                    d3.select(this)
+                        .append("td")
+                        .text(pid)
+                    ;
+
+                    d3.select(this)
+                        .append("td")
+                        .append("div")
+                        .classed("task-button", true)
+                        .text("unregister")
+                        .on("click", function(){deregister_dependency(pid);})
+                    ;
+                }
+            )
+    ;
 }
 
 function load_task_dashboard(task_descriptor) {
+    function make_url(port) {
+        return '<a href="http://' + window.location.hostname + ":" + port + '/">' + port + "</href>";
+    }
+
     d3.select("#dashboard_surface")
         .html("");
     ;
     
-    d3.select("#dashboard_surface")
+    var d3_table = d3.select("#dashboard_surface")
         .append("div")
-        .classed("dashboard ", true)
+        .classed("dashboard", true)
         .append("table")
+    ;
+
+    d3_table
+        .append("tr")
+        .classed("dashboard-header", true)
+        .text("Task State")
+        .style("color", "green")
+        .style("font-size", "22px")
+    ;
+
+    d3_table
         .selectAll("tr")
         .data(
             [
                 ["Task", task_descriptor.name],
                 ["Process ID", task_descriptor.pid],
-                ["Ports", task_descriptor.ports.sort().join(",")]
+                ["Ports", task_descriptor.ports.sort().map(make_url).join(",")]
             ]
         )
         .enter()
@@ -209,7 +265,7 @@ function load_task_dashboard(task_descriptor) {
 
                     d3.select(this)
                         .append("td")
-                        .text(d[1])
+                        .html(d[1])
                     ;
                 }
             )
@@ -264,6 +320,21 @@ function disable_task(name) {
 function stop_supervisor() {
     ajaxFunction(
         "/api/control/stop_supervisor",
+
+        function(ajax_result){
+            refresh();
+        },
+
+        function(ajax_exception){
+        },
+
+        "POST"
+    );
+}
+
+function deregister_dependency(pid) {
+    ajaxFunction(
+        "/api/control/deregister_dependency/" + pid,
 
         function(ajax_result){
             refresh();

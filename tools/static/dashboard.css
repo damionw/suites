@@ -28,3 +28,10 @@
 .dashboard > table > tr > :not(td:first-of-type {
     color: black;
 }
+
+/* This doesn't appear to work for dynamically inserted elements */
+.dashboard > table > tr.dashboard-header {
+    color: green;
+    font-size: 22px;
+    padding-top: 140px;
+}

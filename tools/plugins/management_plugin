@@ -9,6 +9,7 @@ http::suites::url_mappings() {
     url::add_handler '^\/api\/control\/restart_task[\/][^\/]*[\/]*$' POST http::suites::response_restart_task
     url::add_handler '^\/api\/control\/enable_task[\/][^\/]*[\/]*$' POST http::suites::response_enable_task
     url::add_handler '^\/api\/control\/disable_task[\/][^\/]*[\/]*$' POST http::suites::response_disable_task
+    url::add_handler '^\/api\/control\/deregister_dependency[\/][^\/]*[\/]*$' POST http::suites::response_deregister_dependency
 }
 
 http::suites::response_index() {
@@ -86,4 +87,22 @@ http::suites::response_disable_task() {
     )
 
     echo "{\"action\": \"disable_task\", \"result\": \"${result}\"}" | http::response_json
+}
+
+http::suites::response_deregister_dependency() {
+    local _method="${1}"
+    local _request="${2}"
+    local _headers="${3}"
+    local _pid="$(basename "$(echo "${_request}" | sed -e 's/\/$//g')")"
+
+    result=$(
+        if suites --suite="${SUITE_FOLDER}" --deregister "${_pid}"
+        then
+            echo "success"
+        else
+            echo "failed"
+        fi
+    )
+
+    echo "{\"action\": \"deregister_dependency\", \"result\": \"${result}\"}" | http::response_json
 }
