@@ -30,8 +30,8 @@
 }
 
 /* This doesn't appear to work for dynamically inserted elements */
-.dashboard > table > tr.dashboard-header {
+.dashboard-header {
     color: green;
     font-size: 22px;
-    padding-top: 140px;
+    margin-top: 140px;
 }

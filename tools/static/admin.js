@@ -1,8 +1,10 @@
+/*--------------------------------- Context -----------------------------*/
 var management_context = {
     "data": null,
     "first_time": true
 };
 
+/*-------------------------------- Data Updates -----------------------------*/
 function refresh() {
     d3.selectAll("#panel > ._synthetic")
         .remove()
@@ -11,14 +13,14 @@ function refresh() {
     refresh_context();
 }
 
-function refresh_data(data) {
-    management_context["data"] = data;
-    update_title(data["suite"]);
-    populate_supervisor_interface(data);
-    populate_task_interfaces(data["tasks"]);
+function refresh_data(supervisor_info) {
+    management_context["data"] = supervisor_info;
+    update_title(supervisor_info.suite);
+    populate_supervisor_interface(supervisor_info);
+    populate_task_interfaces(supervisor_info.tasks);
     
     if (management_context.first_time) {
-        load_supervisor_dashboard(data);
+        load_supervisor_dashboard(supervisor_info);
         management_context.first_time = false;
     }
 }
@@ -29,122 +31,56 @@ function update_title(title) {
     ;
 }
 
+/*--------------------------------- UI Formatting -----------------------------*/
 function populate_supervisor_interface(supervisor_info) {
-    var new_element = document.createElement("div");
     var insertion_element = get_panel_insertion_point("supervisor");
 
-    d3.select("#panel").node().insertBefore(new_element, insertion_element);
-
-    d3.select(new_element)
-        .classed("_synthetic", true)
-        .classed("menu_selection", true)
-        .text(function() {return "Supervisor Dashboard";})
-        .on("click", function(){load_supervisor_dashboard(supervisor_info);})
-    ;
-
-    insertion_element = new_element.nextElementSibling;
-    new_element = document.createElement("div");
-    d3.select("#panel").node().insertBefore(new_element, insertion_element);
-
-    d3.select(new_element)
-        .classed("_synthetic", true)
-        .classed("menu_selection", true)
-        .text("Stop")
-        .on("click", function(){stop_supervisor(); load_supervisor_dashboard(supervisor_info);})
-    ;
-}
-
-function get_panel_insertion_point(where) {
-    var on = false;
-    var list = [];
-
     d3.select("#panel")
-        .selectAll(
-            function() {
-                return this.childNodes;
-            }
-        )
-        .each(
-            function() {
-                if (this == d3.select("#" + where).node()) {
-                    on = true;
-                    list.push(this);
-                } else if (! on) {
-                } else if (this.tagName == "DETAILS") {
-                    list.push(this);
-                } else if (this.tagName) {
-                    on = false;
-                }
-            }
-        )
-    ;
-
-    return list[list.length - 1].nextElementSibling;
-}
-
-function populate_task_interfaces(tasks) {
-    d3.select("#panel")
-        .selectAll(
-            function() {return [];}
-        )
-        .data(tasks)
+        .selectAll(function() {return [];})
+        .data([supervisor_info])
         .enter()
             .each(
-                function(d) {
-                    var element = document.createElement("details");
-                    var name = d.name;
+                function(supervisor_info) {
+                    var new_element = document.createElement("div");
 
-                    d3.select("#panel").node().insertBefore(element, get_panel_insertion_point("tasks"));
+                    d3.select("#panel").node().insertBefore(new_element, insertion_element);
 
-                    var d3_element = d3.select(element);
-                    
-                    d3_element
+                    d3.select(new_element)
                         .classed("_synthetic", true)
-                        .append("summary")
-                        .text(function() {return name;})
-                    ;
-                    
-                    d3_element
-                        .append("div")
-                        .text("Dashboard")
-                        .on("click", function(){load_task_dashboard(d);})
-                    ;
-
-                    d3_element
-                        .append("div")
-                        .text("Restart")
-                        .on("click", function(){restart_task(name); load_task_dashboard(d);})
-                    ;
-
-                    d3_element
-                        .append("div")
-                        .text("Enable")
-                        .on("click", function(){enable_task(name); load_task_dashboard(d);})
-                    ;
-
-                    d3_element
-                        .append("div")
-                        .text("Disable")
-                        .on("click", function(){disable_task(name); load_task_dashboard(d);})
+                        .classed("menu_selection", true)
+                        .text(function() {return "Supervisor Dashboard";})
+                        .on("click", function(){load_supervisor_dashboard(supervisor_info);})
                     ;
                 }
             )
-        ;
+    ;
 }
 
-function refresh_context() {
-    ajaxFunction(
-        "/api/status",
+function populate_task_interfaces(tasks) {
+    var insertion_element = get_panel_insertion_point("tasks");
 
-        function(ajax_result){
-            refresh_data(ajax_result);
-        },
+    d3.select("#panel")
+        .selectAll(function() {return [];})
+        .data(tasks)
+        .enter()
+            .each(
+                function(task_descriptor) {
+                    var new_element = document.createElement("div");
 
-        function(ajax_exception){
-        }
-    );
+                    d3.select("#panel").node().insertBefore(new_element, insertion_element);
+                    
+                    d3.select(new_element)
+                        .classed("_synthetic", true)
+                        .classed("menu_selection", true)
+                        .text(function() {return task_descriptor.name;})
+                        .on("click", function(){load_task_dashboard(task_descriptor);})
+                    ;
+                }
+            )
+    ;
 }
 
+/*--------------------------------- Dashboard Formatting -----------------------------*/
 function load_supervisor_dashboard(supervisor_info) {
     d3.select("#dashboard_surface")
         .html("");
@@ -158,14 +94,39 @@ function load_supervisor_dashboard(supervisor_info) {
 
     d3_table
         .append("tr")
+        .text("Controls")
         .classed("dashboard-header", true)
-        .text("Supervisor State")
         .style("color", "green")
         .style("font-size", "22px")
     ;
 
     d3_table
-        .selectAll("tr")
+        .append("tr")
+        .selectAll("td")
+        .data(
+            [
+                ["Stop Supervisor", function(){stop_supervisor(); load_supervisor_dashboard(supervisor_info);}]
+            ]
+         )
+        .enter()
+            .append("td")
+            .append("div")
+            .classed("task-button", true)
+            .text(function(d) {return d[0];})
+            .on("click", function(d){d[1]();})
+    ;
+
+    d3_table
+        .append("tr")
+        .append("div")
+        .classed("dashboard-header", true)
+        .text("State")
+        .style("color", "green")
+        .style("font-size", "22px")
+    ;
+
+    d3_table
+        .selectAll(function(){return [];})
         .data(
             [
                 ["Suite", supervisor_info.name],
@@ -193,7 +154,7 @@ function load_supervisor_dashboard(supervisor_info) {
     d3_table
         .append("tr")
         .classed("dashboard-header", true)
-        .text("Dependent Processes")
+        .text("Dependencies")
         .style("color", "green")
         .style("font-size", "22px")
     ;
@@ -214,7 +175,7 @@ function load_supervisor_dashboard(supervisor_info) {
                         .append("td")
                         .append("div")
                         .classed("task-button", true)
-                        .text("unregister")
+                        .text("remove")
                         .on("click", function(){deregister_dependency(pid);})
                     ;
                 }
@@ -230,7 +191,7 @@ function load_task_dashboard(task_descriptor) {
     d3.select("#dashboard_surface")
         .html("");
     ;
-    
+
     var d3_table = d3.select("#dashboard_surface")
         .append("div")
         .classed("dashboard", true)
@@ -240,13 +201,42 @@ function load_task_dashboard(task_descriptor) {
     d3_table
         .append("tr")
         .classed("dashboard-header", true)
-        .text("Task State")
+        .text("Controls")
+        .style("color", "green")
+        .style("font-size", "22px")
+        .style("padding-top", "40px")
+    ;
+
+    d3_table
+        .append("tr")
+        .selectAll("td")
+        .data(
+            [
+                ["Restart", function(){restart_task(task_descriptor.name); load_task_dashboard(task_descriptor);}],
+                ["Enable", function(){enable_task(task_descriptor.name); load_task_dashboard(task_descriptor);}],
+                ["Disable", function(){disable_task(task_descriptor.name); load_task_dashboard(task_descriptor);}]
+            ]
+         )
+        .enter()
+            .append("td")
+            .append("div")
+            .classed("task-button", true)
+            .text(function(d) {return d[0];})
+            .on("click", function(d){d[1]();})
+    ;
+
+    d3_table
+        .append("tr")
+        .style("border", "2px solid orange")
+        .style("margin-top", "40px")
+        .classed("dashboard-header", true)
+        .text("Status")
         .style("color", "green")
         .style("font-size", "22px")
     ;
 
     d3_table
-        .selectAll("tr")
+        .selectAll(function(){return [];})
         .data(
             [
                 ["Task", task_descriptor.name],
@@ -272,6 +262,7 @@ function load_task_dashboard(task_descriptor) {
     ;
 }
 
+/*--------------------------------- API Calls -----------------------------*/
 function restart_task(name) {
     ajaxFunction(
         "/api/control/restart_task/" + name,
@@ -345,6 +336,48 @@ function deregister_dependency(pid) {
 
         "POST"
     );
+}
+
+function refresh_context() {
+    ajaxFunction(
+        "/api/status",
+
+        function(ajax_result){
+            refresh_data(ajax_result);
+        },
+
+        function(ajax_exception){
+        }
+    );
+}
+
+/*--------------------------------- DOM Info -----------------------------*/
+function get_panel_insertion_point(where) {
+    var on = false;
+    var list = [];
+
+    d3.select("#panel")
+        .selectAll(
+            function() {
+                return this.childNodes;
+            }
+        )
+        .each(
+            function() {
+                if (this == d3.select("#" + where).node()) {
+                    on = true;
+                    list.push(this);
+                } else if (! on) {
+                } else if (this.tagName == "DETAILS") {
+                    list.push(this);
+                } else if (this.tagName) {
+                    on = false;
+                }
+            }
+        )
+    ;
+
+    return list[list.length - 1].nextElementSibling;
 }
 
 Window.management_context = management_context;
