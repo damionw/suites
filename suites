@@ -301,7 +301,7 @@ get_task_ports() {
     
     if _pid="$(get_task_pid "${_task}")" && test -n "${_pid}"
     then
-        lsof -p ${_pid} -P 2>/dev/null | grep '[\(]LISTEN[\)][ ]*$' | awk '/TCP/ {print $(NF - 1);}' | awk -F: '{print $2;}'
+        lsof -n -p ${_pid} -P 2>/dev/null | grep '[\(]LISTEN[\)][ ]*$' | awk '/TCP/ {print $(NF - 1);}' | awk -F: '{print $2;}'
     fi
 }
 
