@@ -234,6 +234,12 @@ get_task_names() {
     sort
 }
 
+get_tasks_by_pidfile() {
+    find "$(get_run_folder)/." -maxdepth 1 -mindepth 1 -type f -name '[^.]*.pid' -printf '%f\n' |
+    sed 's/[\.]pid$//g' |
+    sort
+}
+
 get_tasks_graph() {
     fn() {
         reactor::depends 2>/dev/null | awk '{printf("%s %s\n", task, $1); ++i;} END {if (i==0) {printf("%s\n", task)};}' i=0 task="${1}"
@@ -290,6 +296,15 @@ get_tasks_subgraph() {
         echo "${_root}"
         echo "${_all}" | egrep "${_regex}"
     fi
+}
+
+get_pruned_tasks() {
+    live_tasks="$(get_task_names)"
+    old_tasks="$(get_tasks_by_pidfile)"
+
+    diff --suppress-common-lines -u <(echo "${live_tasks}") <(echo "${old_tasks}") |
+    grep '^[\+]' |
+    sed -e 's/^+//g'
 }
 
 #===================================================================================
@@ -440,9 +455,9 @@ check_tasks() {
     )"
 
     # -------------------------------------------------------
-    # Stop disabled tasks in reverse startup order, including dependents
+    # Stop disabled tasks in reverse startup order, including dependents and pruned tasks
     # -------------------------------------------------------
-    stop_tasks $(echo "${_stop_list}" | tac)
+    stop_tasks $(echo "${_stop_list}" | tac) $(get_pruned_tasks)
     
     # -------------------------------------------------------
     # Progressively follow the start order and only start the
@@ -783,7 +798,7 @@ supervisor() {
     validate_dependencies </dev/null
 
     # cleanup
-    for _task in $(get_task_names)
+    for _task in $(get_task_names) $(get_pruned_tasks)
     do
         rm "$(get_task_pidfile "${_task}")" >/dev/null 2>&1
     done
