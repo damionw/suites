@@ -1,4 +1,4 @@
-INSTALL_PREFIX := /usr/local
+INSTALL_PATH := $(shell python -c 'import sys; print sys.prefix if hasattr(sys, "real_prefix") else exit(255)' 2>/dev/null || echo "/usr/local")
 MAKE := make
 MAKE_PID := $(shell ps --pid=$$$$ --no-heading -o ppid)
 
@@ -15,6 +15,7 @@ all: build/bin \
 	@install -m 555 suites build/bin
 
 install: tests
+	@echo "Installing into directory '$(INSTALL_PATH)'"
 	@rsync -az build/ $(INSTALL_PREFIX)/
 
 demo: all
