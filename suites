@@ -834,7 +834,7 @@ showhelp() {
 
 showversion() {
     echo "${SUITE_VERSION}"
-    exit 17
+    exit
 }
 
 #__________________ UNITTEST SENTINEL ___________________ #

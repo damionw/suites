@@ -2,9 +2,11 @@ INSTALL_PATH := $(shell python -c 'import sys; print sys.prefix if hasattr(sys, 
 MAKE := make
 MAKE_PID := $(shell ps --pid=$$$$ --no-heading -o ppid)
 
-.PHONY: tests clean
+.PHONY: tests clean build
 
-all: build/bin \
+all: build
+
+build: build/bin \
 	build/share/Suites/static build/share/Suites/reactors build/share/Suites/plugins build/share/Suites/profile build/share/Suites/examples \
 	build/share/Suites/tools/webserve build/share/Suites/static/d3.min.js build/share/Suites/static/ajax.js
 	@rsync -azL tools/static/ build/share/Suites/static/
@@ -13,6 +15,9 @@ all: build/bin \
 	@rsync -azL tools/profile.d/ build/share/Suites/profile/
 	@rsync -azL examples/ build/share/Suites/examples/
 	@install -m 555 suites build/bin
+
+version: build
+	@build/bin/suites --version
 
 install: tests
 	@echo "Installing into directory '$(INSTALL_PATH)'"
