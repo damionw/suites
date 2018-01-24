@@ -4,7 +4,7 @@
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.6
+SUITE_VERSION=0.1.7
 SUITE_FOLDER=
 SUITE_LABEL=
 FIFO_WAIT_TIME=2
@@ -269,6 +269,15 @@ get_task_order_from_graph() {
 
         _counter="${_new}"
         _satisfied="$((echo "${_satisfied}"; echo "${_graph}" | awk '{if ($2 == "") {print $1;}}') | sed -e '/^[ ]*$/d')"
+
+        # Randomly reorder the (first level) tasks that have no dependencies. This avoids
+        # having a failing top level service block the whole chain. However, a blocking
+        # service will still prevent dependents from starting.
+        if [ ${_counter:-0} = 0 ]
+        then
+            _satisfied="$(echo "${_satisfied}" | shuf)"
+        fi
+
         _regex='\('$(echo "${_satisfied}" | awk '{printf("%s%s", sep, $1); sep="\\|";}')'\)'
         _graph="$(echo "${_graph}" | sed -e "/^${_regex}"'$/d' -e "s/ ${_regex}"'$//g')"
     done
