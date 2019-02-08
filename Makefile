@@ -21,7 +21,7 @@ version: build
 
 install: tests
 	@echo "Installing into directory '$(INSTALL_PATH)'"
-	@rsync -az build/ $(INSTALL_PREFIX)/
+	@rsync -az build/ $(INSTALL_PATH)/
 
 demo: all
 	@PATH=$(shell readlink -f build/bin):$$PATH suites --suite=build/share/Suites/examples/demo --start
