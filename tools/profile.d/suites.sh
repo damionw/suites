@@ -1,4 +1,4 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
 folders="$(
     find "${HOME}/.suites/" -maxdepth 1 -mindepth 1 -type d ! -name '.*' -print | while read folder
@@ -9,7 +9,7 @@ folders="$(
 
 while read folder
 do
-    if [ -d "${folder}" ]
+    if [ -n "${folder}" -a -d "${folder}" ]
     then
         suites --suite="${folder}" --start
     fi
