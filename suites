@@ -1,11 +1,11 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
 #===================================================================================
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.7
-SUITE_FOLDER=
+SUITE_VERSION=0.1.8
+SUITE_FOLDER="${HOME}/.suites/Default"
 SUITE_LABEL=
 FIFO_WAIT_TIME=2
 DEFAULT_COUNTDOWN= # Infinite
@@ -865,7 +865,7 @@ then
     export -n __SUITE_FOLDER__ __SUITE_LABEL__
     supervisor
     exit 0
-elif ! OPTION_TEMP=$(getopt -a -o hv --long help,label:,supervisor,status,kill:,restart:,start,shutdown,stop,deregister:,register:,suite:,disable:,enable:,version -- "$@")
+elif ! OPTION_TEMP=$(getopt -a -o hv --long help,label:,supervisor,status,create,kill:,restart:,start,shutdown,stop,deregister:,register:,suite:,disable:,enable:,version -- "$@")
 then
     #-----------------------------------------------------
     # NOTE: There is a bug in getopts where not specifying
@@ -891,21 +891,32 @@ PARENT_PID="$(get_process_parent "${this_pid}")"
 #===================================================================================
 #                     Process command line parameters
 #===================================================================================
+create_suite_folder=false
+
 while true
 do
     case "$1" in
         --suite)
-            SUITE_FOLDER="$(readlink -f "$2")"
+            path="${2}"
+            shift 2
 
-            if [ ! -d "${SUITE_FOLDER}" ]
+            if [ -d "${path}" ]
             then
-                abort "No suite folder in '${2}'"
-            elif [ -z "${SUITE_LABEL}" ]
+                :
+            elif ! ${create_suite_folder:-false}
+            then
+                abort "No suite folder exists in '${path}'"
+            elif ! mkdir -p "${path}"
+            then
+                abort "Can't create suite folder in '${path}'"
+            fi
+
+            SUITE_FOLDER="$(readlink -f "${path}")"
+
+            if [ -z "${SUITE_LABEL}" ]
             then
                 SUITE_LABEL="$(basename "${SUITE_FOLDER}")"
             fi
-
-            shift 2
             ;;
 
         --deregister)
@@ -916,6 +927,11 @@ do
         --register)
             send_dependency_registration_request "${2}"
             shift 2
+            ;;
+
+        --create)
+            create_suite_folder=true
+            shift
             ;;
 
         --enable)
