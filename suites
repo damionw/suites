@@ -4,10 +4,10 @@
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.8
+SUITE_VERSION=0.1.9
 SUITE_FOLDER="${HOME}/.suites/Default"
 SUITE_LABEL=
-FIFO_WAIT_TIME=2
+FIFO_WAIT_TIME=15
 DEFAULT_COUNTDOWN= # Infinite
 SUPERVISOR_STOP_ITERATIONS=3
 
