@@ -19,7 +19,7 @@ build: build/bin \
 version: build
 	@build/bin/suites --version
 
-install: tests
+install:
 	@echo "Installing into directory '$(INSTALL_PATH)'"
 	@rsync -az build/ $(INSTALL_PATH)/
 

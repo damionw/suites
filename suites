@@ -184,7 +184,7 @@ get_task_pid() {
 
 get_process_parent() {
     local _pid="${1}"
-    test -n "${_pid}" && awk '/^PPid[\:]/ {print $NF;}' < "/proc/${_pid}/status"
+    test -n "${_pid}" && awk '/^PPid[:]/ {print $NF;}' < "/proc/${_pid}/status"
 }
 
 #===================================================================================
