@@ -4,7 +4,7 @@
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.9
+SUITE_VERSION=0.1.10
 SUITE_FOLDER="${HOME}/.suites/Default"
 SUITE_LABEL=
 FIFO_WAIT_TIME=15
@@ -191,8 +191,12 @@ get_process_parent() {
 #                              Status
 #===================================================================================
 is_supervisor_active() {
-    local _pid="$(get_supervisor_pid)"
-    test -n "${_pid}" && is_process_alive "${_pid}" && test_supervisor_fifo
+    local _pid
+
+    _pid="$(get_supervisor_pid)" &&
+    [[ -n "${_pid}" ]] &&
+    is_process_alive "${_pid}" &&
+    test_supervisor_fifo
 }
 
 test_supervisor_fifo() {
@@ -200,11 +204,10 @@ test_supervisor_fifo() {
     local _signal=12 # SIGUSR1
     local _pid
 
-    if [ ! -p "${_fifo}" ]
-    then
+    [[ -p "${_fifo}" ]] || {
         log "'${_fifo}' is not a fifo"
-        return 255
-    fi
+        return $?
+    }
 
     # From a subshell, send an empty message. If it blocks, then there's no reader and a background sleeper will kill the blocked parent
     (trap 'false' "${_signal}"; _pid=$BASHPID; (sleep "$(get_wait_time)"; kill "-${_signal}" "${_pid}") & echo -n "" >"${_fifo}") >/dev/null 2>&1
