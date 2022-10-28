@@ -303,7 +303,7 @@ get_tasks_subgraph() {
         _nodes="$((echo "${_nodes}"; echo "${_all}" | egrep "${_regex}" | awk '{print $1;}') | sort -u)"
     done
 
-    if [ "${_length}" -gt 0 ]
+    if [[ "${_length}" -gt 0 ]]
     then
         echo "${_root}"
         echo "${_all}" | egrep "${_regex}"
