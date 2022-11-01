@@ -4,7 +4,7 @@
 #                                   Constants
 #===================================================================================
 export SUITE_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-SUITE_VERSION=0.1.10
+SUITE_VERSION=0.1.11
 SUITE_FOLDER="${HOME}/.suites/Default"
 SUITE_LABEL=
 FIFO_WAIT_TIME=15
@@ -210,7 +210,9 @@ test_supervisor_fifo() {
     }
 
     # From a subshell, send an empty message. If it blocks, then there's no reader and a background sleeper will kill the blocked parent
-    (trap 'false' "${_signal}"; _pid=$BASHPID; (sleep "$(get_wait_time)"; kill "-${_signal}" "${_pid}") & echo -n "" >"${_fifo}") >/dev/null 2>&1
+    (trap 'exit 89' "${_signal}"; _pid=$BASHPID; (sleep "$(get_wait_time)"; kill "-${_signal}" "${_pid}") & echo -n "" >"${_fifo}") >/dev/null 2>&1
+    local _error=$?
+    return ${_error}
 }
 
 is_process_alive() {
